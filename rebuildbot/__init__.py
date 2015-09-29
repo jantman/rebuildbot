@@ -1,5 +1,5 @@
 """
-rebuildbot/version.py
+rebuildbot/__init__.py
 
 The latest version of this package is available at:
 <https://github.com/jantman/rebuildbot>

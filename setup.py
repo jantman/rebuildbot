@@ -45,6 +45,9 @@ with open('README.rst') as file:
     long_description = file.read()
 
 requires = [
+    'TravisPy>=0.3.3,<1',
+    'boto>=2.32.0',
+    'python-dateutil>=2.4.2',
 ]
 
 classifiers = [
@@ -75,10 +78,10 @@ setup(
     author='Jason Antman',
     author_email='jason@jasonantman.com',
     packages=find_packages(),
-    #entry_points="""
-    #[console_scripts]
-    #rebuildbot = rebuildbot.runner:console_entry_point
-    #""",
+    entry_points="""
+    [console_scripts]
+    rebuildbot = rebuildbot.runner:console_entry_point
+    """,
     url=_PROJECT_URL,
     description='Rebuildbot re-runs builds of your inactive projects.',
     long_description=long_description,
