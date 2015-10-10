@@ -41,7 +41,6 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 
 import time
 import logging
-import json
 
 try:
     from urllib import quote
@@ -54,17 +53,20 @@ from travispy.travispy import PUBLIC
 logger = logging.getLogger(__name__)
 
 CHECK_WAIT_TIME = 10  # seconds to wait before polling for builds
+POLL_NUM_TIMES = 6  # how many times to poll before raising exception
 
 
 class Travis(object):
     """
-    ReBuildBot wrapper around TravisPy
+    ReBuildBot wrapper around TravisPy.
     """
 
     def __init__(self, github_token):
         """
         Connect to TravisCI. Return a connected TravisPy instance.
 
+        @param github_token: GitHub access token to auth to Travis with
+        @type github_token: str
         @rtype: :py:class:`TravisPy`
         """
         self.travis = TravisPy.github_auth(github_token)
@@ -74,7 +76,14 @@ class Travis(object):
 
     def get_repos(self):
         """
-        Return a list of all repo names for the current user.
+        Return a list of all repo names for the current authenticated user.
+
+        This only returns repos with a slug (<user_or_org>/<repo_name>) that
+        begins with the user login; it ignores organization repos or repos
+        that the user is a collaborator on.
+
+        @returns: list of the user's repository slugs
+        @rtype: list of strings
         """
         repos = []
         for r in self.travis.repos(member=self.user.login):
@@ -82,51 +91,70 @@ class Travis(object):
                 repos.append(r.slug)
             else:
                 logger.debug("Ignoring repo owned by another user: %s", r.slug)
-        return repos
+        return sorted(repos)
 
-    def run_build(self, repo_name, branch='master'):
+    def run_build(self, repo_slug, branch='master'):
         """
         Trigger a Travis build of the specified repository on the specified
-        branch. Return the build ID of the triggered build, or None on error.
+        branch. Wait for the build repository's latest build ID to change,
+        an then return the build ID of the triggered build, or None on error.
+
+        @param repo_slug: repository slug (<username>/<repo_name>)
+        @type repo_slug: string
+        @param branch: name of the branch to build
+        @type branch: string
+        @raises: PollTimeoutException, TravisTriggerError
+        @returns: build ID of the triggered build, or None on error
+        @rtype: int or None
         """
-        self.repo_name = 'jantman/pydnstest'
-        self.branch = branch
-        self.repo = self.travis.repo(repo_name)
+        repo = self.travis.repo(repo_slug)
         logger.info("Travis Repo %s (%s): pending=%s queued=%s running=%s "
-                    "state=%s", repo_name, self.repo.id, self.repo.pending,
-                    self.repo.queued, self.repo.running, self.repo.state)
-        self.last_build = self.repo.last_build
+                    "state=%s", repo_slug, repo.id, repo.pending, repo.queued,
+                    repo.running, repo.state)
+        last_build = repo.last_build
         logger.debug("Found last build as #%s (%s), state=%s, started_at=%s ",
-                     self.last_build.number, self.last_build.id,
-                     self.last_build.state, self.last_build.started_at)
-        res = self.trigger_travis(repo_name)
-        if not res:
-            return None
-        c = 0
+                     last_build.number, last_build.id,
+                     last_build.state, last_build.started_at)
+        self.trigger_travis(repo_slug, branch=branch)
+        return self.wait_for_new_build(repo_slug, last_build.id)
+
+    def wait_for_new_build(self, repo_slug, last_build_id):
+        """
+        Wait for a repository to show a new last build ID, indicating that the
+        triggered build has started or is queued.
+
+        This polls for the last_build ID every :py:const:`~.CHECK_WAIT_TIME`
+        seconds, up to :py:const:`~.POLL_NUM_TRIES` times. If the ID has not
+        changed at the end, raise a :py:class:`~.PollTimeoutException`.
+
+        @param repo_slug: the slug for the repo to check
+        @type repo_slug: string
+        @param last_build_id: the ID of the last build
+        @type last_build_id: int
+        @raises: PollTimeoutException, TravisTriggerError
+        @returns: ID of the new build
+        @rtype: int
+        """
         logger.info("Waiting up to %s seconds for build of %s to start",
-                    (10 * CHECK_WAIT_TIME), repo_name)
-        while c < 10:
-            build_id = self.get_last_build(repo_name).id
-            if build_id != self.last_build.id:
+                    (POLL_NUM_TIMES * CHECK_WAIT_TIME), repo_slug)
+        for c in range(0, POLL_NUM_TIMES):
+            build_id = self.get_last_build(repo_slug).id
+            if build_id != last_build_id:
                 logger.debug("Found new build ID: %s", build_id)
                 return build_id
             logger.debug("Build has not started; waiting %ss", CHECK_WAIT_TIME)
             time.sleep(CHECK_WAIT_TIME)
-            c += 1
         else:
-            logger.error("ERROR: Triggered build of %s branch %s, but "
-                         "last_build has not changed in %d seconds.", repo_name,
-                         branch, (c * CHECK_WAIT_TIME))
-            return None
-        return build_id
+            raise PollTimeoutException('last_build.id', repo_slug,
+                                       CHECK_WAIT_TIME, POLL_NUM_TIMES)
 
-    def get_last_build(self, repo_name):
+    def get_last_build(self, repo_slug):
         """
         Return the TravisPy.Build object for the last build of the repo.
         """
-        return self.travis.repo(repo_name).last_build
+        return self.travis.repo(repo_slug).last_build
 
-    def trigger_travis(self, repo_name, branch='master'):
+    def trigger_travis(self, repo_slug, branch='master'):
         """
         Trigger a TravisCI build of a specific branch of a specific repo.
 
@@ -136,7 +164,11 @@ class Travis(object):
         `trigger builds <http://docs.travis-ci.com/user/triggering-builds/>`_
         is not supported. This method adds that.
 
-        Return True if the API indicates success, False otherwise
+        @raises TravisTriggerError
+        @param repo_slug: repository slug (<username>/<repo_name>)
+        @type repo_slug: string
+        @param branch: name of the branch to build
+        @type branch: string
         """
         body = {
             'request': {
@@ -144,27 +176,66 @@ class Travis(object):
                 'message': 'triggered by https://github.com/jantman/rebuildbot'
             }
         }
-        body_json = json.dumps(body)
-        logger.debug("Request body: %s", body_json)
-        url = PUBLIC + '/repo/' + quote(repo_name, safe='') + '/requests'
+        url = PUBLIC + '/repo/' + quote(repo_slug, safe='') + '/requests'
+        logger.debug("Triggering build of %s %s via %s", repo_slug, branch, url)
         headers = self.travis._HEADERS
         headers['Content-Type'] = 'application/json'
         headers['Accept'] = 'application/json'
         headers['Travis-API-Version'] = '3'
         res = self.travis._session.post(url, json=body, headers=headers)
         if res.status_code >= 200 and res.status_code < 300:
-            logger.info("Successfully triggered build on %s", repo_name)
-            return True
-        logger.error("Error: attempt to trigger build via %s got status code "
-                     "%s", url, res.status_code)
-        logger.debug("Response headers: %s", res.headers)
-        logger.debug("Response text: %s", res.text)
-        return False
+            logger.info("Successfully triggered build on %s", repo_slug)
+            return
+        raise TravisTriggerError(repo_slug, branch, url, res.status_code,
+                                 res.headers, res.text)
 
-    def url_for_build(self, repo_name, build_num):
+    def url_for_build(self, repo_slug, build_num):
         """
         Given a repository name and build number, return the HTML URL for the
         build.
         """
-        s = 'https://travis-ci.org/%s/builds/%s' % (repo_name, build_num)
+        s = 'https://travis-ci.org/%s/builds/%s' % (repo_slug, build_num)
         return s
+
+
+class TravisTriggerError(Exception):
+    """Raised when triggering a Travis build returns a bad response code."""
+
+    def __init__(self, repo, branch, url, status_code, headers, text):
+        self.repo = repo
+        self.branch = branch
+        self.url = url
+        self.status_code = status_code
+        self.headers = headers
+        self.text = text
+
+        msg = "Got {sc} response code when triggering build of {r} ({b}) " \
+              "via <{url}>:\nHeaders:\n{h}\nResponse Body:\n{t}".format(
+                  sc=status_code,
+                  r=repo,
+                  b=branch,
+                  url=url,
+                  h=headers,
+                  t=text
+              )
+        super(TravisTriggerError, self).__init__(msg)
+
+
+class PollTimeoutException(Exception):
+    """
+    Raised when polling the Travis API for a change times out.
+    """
+
+    def __init__(self, poll_type, repo, wait_time, num_times):
+        self.poll_type = poll_type
+        self.repo = repo
+        self.wait_time = wait_time
+        self.num_times = num_times
+
+        msg = "Polling Travis for update to {pt} on {r} timed out after {s} " \
+              "seconds".format(
+                  pt=poll_type,
+                  r=repo,
+                  s=(wait_time * num_times)
+              )
+        super(PollTimeoutException, self).__init__(msg)
