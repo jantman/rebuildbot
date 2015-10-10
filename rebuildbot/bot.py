@@ -56,14 +56,19 @@ class ReBuildBot(object):
     Main class for ReBuildBot - this is where everything happens.
     """
 
-    def __init__(self):
+    def __init__(self, dry_run=False):
         """
         Initialize ReBuildBot and attempt to connect to all external services.
+
+        @param dry_run: log what would be done, and perform normal output/
+          notifications, but do not actually run any tests
+        @type dry_run: boolean
         """
         self.gh_token = self.get_github_token()
         self.github = self.connect_github()
         self.travis = Travis(self.gh_token)
         self.s3 = self.connect_s3()
+        self.dry_run = dry_run
 
     def run(self, projects=None):
         """
@@ -79,7 +84,7 @@ class ReBuildBot(object):
         # NOTES:
         """
         TODO:
-        1) we'll need find_projects_travis() and find_projects_local(), each
+        1) we'll need find_projects_travis() and find_projects_github(), each
         returning a list of repository slugs. For the Travis ones, we want to
         kick off builds of them and append the running build_ids to a list,
         checking back and updating a result dict with the result of the build,
@@ -99,7 +104,7 @@ class ReBuildBot(object):
         6) This final result dict will be transformed into HTML, which will be
         put both in S3 and sent via email.
         """
-        #repos = self.travis.get_repos()
+        # repos = self.travis.get_repos()
         repo_name = 'jantman/pydnstest'
         last_build = self.travis.get_last_build(repo_name)
         last_build_url = self.travis.url_for_build(repo_name, last_build.id)

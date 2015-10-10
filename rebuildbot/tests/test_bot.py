@@ -83,6 +83,31 @@ class TestReBuildBotInit(object):
         assert cls.github == mock_connect_gh.return_value
         assert cls.travis == mock_travis.return_value
         assert cls.s3 == mock_connect_s3.return_value
+        assert cls.dry_run is False
+
+    def test_init_dry_run(self):
+        with nested(
+                patch('%s.get_github_token' % pb),
+                patch('%s.connect_github' % pb),
+                patch('%s.Travis' % pbm),
+                patch('%s.connect_s3' % pb),
+        ) as (
+            mock_get_gh_token,
+            mock_connect_gh,
+            mock_travis,
+            mock_connect_s3,
+        ):
+            mock_get_gh_token.return_value = 'myGHtoken'
+            cls = ReBuildBot(dry_run=True)
+        assert mock_get_gh_token.mock_calls == [call()]
+        assert mock_connect_gh.mock_calls == [call()]
+        assert mock_travis.mock_calls == [call('myGHtoken')]
+        assert mock_connect_s3.mock_calls == [call()]
+        assert cls.gh_token == 'myGHtoken'
+        assert cls.github == mock_connect_gh.return_value
+        assert cls.travis == mock_travis.return_value
+        assert cls.s3 == mock_connect_s3.return_value
+        assert cls.dry_run is True
 
 
 class TestReBuildBot(object):

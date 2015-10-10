@@ -88,6 +88,11 @@ class Runner(object):
         p.add_argument('-V', '--version', dest='version', action='store_true',
                        default=False,
                        help='print version number and exit.')
+        p.add_argument('-d', '--dry-run', dest='dry_run',
+                       action='store_true', default=False,
+                       help='log what would be done, and perform '
+                       'normal output/notifications, but do not '
+                       'actually run any tests')
         args = p.parse_args(argv)
         return args
 
@@ -110,7 +115,7 @@ class Runner(object):
             ))
             raise SystemExit(0)
 
-        bot = ReBuildBot()
+        bot = ReBuildBot(dry_run=args.dry_run)
         bot.run()
 
 

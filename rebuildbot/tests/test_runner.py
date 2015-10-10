@@ -91,28 +91,29 @@ class TestRunner(object):
             call().add_argument('-V', '--version', dest='version',
                                 action='store_true', default=False,
                                 help='print version number and exit.'),
+            call().add_argument('-d', '--dry-run', dest='dry_run',
+                                action='store_true', default=False,
+                                help='log what would be done, and perform '
+                                'normal output/notifications, but do not '
+                                'actually run any tests'),
             call().parse_args([]),
         ]
-
-    def test_parse_args_none(self):
-        res = self.cls.parse_args([])
-        assert res.verbose == 0
-        assert res.version is False
 
     def test_parse_args_verbose1(self):
         res = self.cls.parse_args(['-v'])
         assert res.verbose == 1
-        assert res.version is False
 
     def test_parse_args_verbose2(self):
         res = self.cls.parse_args(['-vv'])
         assert res.verbose == 2
-        assert res.version is False
 
     def test_parse_args_version(self):
         res = self.cls.parse_args(['-V'])
-        assert res.verbose == 0
         assert res.version is True
+
+    def test_parse_args_dry_run(self):
+        res = self.cls.parse_args(['-d'])
+        assert res.dry_run is True
 
     def test_console_entry_point(self):
         argv = ['/tmp/rebuildbot/runner.py']
@@ -123,7 +124,21 @@ class TestRunner(object):
         ) as (foo, mock_bot, mock_logger):
             self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
-            call(),
+            call(dry_run=False),
+            call().run()
+        ]
+        assert mock_logger.mock_calls == []
+
+    def test_console_entry_point_dry_run(self):
+        argv = ['/tmp/rebuildbot/runner.py', '--dry-run']
+        with nested(
+                patch.object(sys, 'argv', argv),
+                patch('%s.ReBuildBot' % pbm),
+                patch('%s.logger' % pbm),
+        ) as (foo, mock_bot, mock_logger):
+            self.cls.console_entry_point()
+        assert mock_bot.mock_calls == [
+            call(dry_run=True),
             call().run()
         ]
         assert mock_logger.mock_calls == []
@@ -154,7 +169,7 @@ class TestRunner(object):
         ) as (foo, mock_bot, mock_logger):
             self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
-            call(),
+            call(dry_run=False),
             call().run()
         ]
         assert mock_logger.mock_calls == [
@@ -173,7 +188,7 @@ class TestRunner(object):
             type(mock_logger).handlers = [mock_handler]
             self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
-            call(),
+            call(dry_run=False),
             call().run()
         ]
 
