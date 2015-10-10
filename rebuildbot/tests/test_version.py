@@ -1,7 +1,5 @@
 """
-rebuildbot/tests/test_travis.py
-
-Wrapper around travispy
+rebuildbot/tests/test_version.py
 
 The latest version of this package is available at:
 <https://github.com/jantman/rebuildbot>
