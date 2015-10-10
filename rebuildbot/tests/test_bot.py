@@ -39,10 +39,11 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 
 import sys
 import pytest
-import logging
+from textwrap import dedent
 from contextlib import nested
 from rebuildbot.bot import ReBuildBot
 from rebuildbot.travis import Travis
+from rebuildbot.exceptions import GitTokenMissingError
 
 # https://code.google.com/p/mock/issues/detail?id=249
 # py>=3.4 should use unittest.mock not the mock package on pypi
@@ -50,9 +51,9 @@ if (
         sys.version_info[0] < 3 or
         sys.version_info[0] == 3 and sys.version_info[1] < 4
 ):
-    from mock import patch, call, Mock
+    from mock import patch, call, Mock, mock_open
 else:
-    from unittest.mock import patch, call, Mock
+    from unittest.mock import patch, call, Mock, mock_open
 
 pbm = 'rebuildbot.bot'  # patch base path for this module
 pb = 'rebuildbot.bot.ReBuildBot'  # patch base for class
@@ -97,3 +98,122 @@ class TestReBuildBot(object):
             self.cls.github = self.mock_github
             self.cls.travis = self.mock_travis
             self.cls.s3 = self.mock_s3
+
+    def test_get_github_token_env(self):
+        new_env = {
+            'foo': 'bar',
+            'HOME': '/my/home',
+            'GITHUB_TOKEN': 'mytoken_env',
+        }
+        gitconfig_content = ''
+
+        mocked_open = mock_open(read_data=gitconfig_content)
+        if sys.version_info[0] == 3:
+            mock_open_target = 'builtins.open'
+        else:
+            mock_open_target = '__builtin__.open'
+
+        with patch.dict('%s.os.environ' % pbm, new_env):
+            with patch(mock_open_target, mocked_open, create=True):
+                res = self.cls.get_github_token()
+        assert res == 'mytoken_env'
+        assert mocked_open.mock_calls == []
+
+    def test_get_github_token_gitconfig(self):
+        new_env = {
+            'foo': 'bar',
+            'HOME': '/my/home',
+        }
+        gitconfig_content = dedent("""
+        ################################################################
+        [user]
+                name = My Name
+                email = me@example.com
+        [push]
+                default = simple
+        [github]
+                user = ghUsername
+                token = myGitConfigToken
+
+        """)
+
+        mocked_open = mock_open(read_data=gitconfig_content)
+        if sys.version_info[0] == 3:
+            mock_open_target = 'builtins.open'
+        else:
+            mock_open_target = '__builtin__.open'
+
+        with patch.dict('%s.os.environ' % pbm, new_env):
+            with patch(mock_open_target, mocked_open, create=True):
+                res = self.cls.get_github_token()
+        assert res == 'myGitConfigToken'
+        assert mocked_open.mock_calls == [
+            call('/my/home/.gitconfig', 'r'),
+            call().__enter__(),
+            call().readlines(),
+            call().__exit__(None, None, None)
+        ]
+
+    def test_get_github_token_no_section(self):
+        new_env = {
+            'foo': 'bar',
+            'HOME': '/my/home',
+        }
+        gitconfig_content = dedent("""
+        ################################################################
+        [user]
+                name = My Name
+                email = me@example.com
+        [push]
+                default = simple
+        """)
+
+        mocked_open = mock_open(read_data=gitconfig_content)
+        if sys.version_info[0] == 3:
+            mock_open_target = 'builtins.open'
+        else:
+            mock_open_target = '__builtin__.open'
+
+        with patch.dict('%s.os.environ' % pbm, new_env):
+            with patch(mock_open_target, mocked_open, create=True):
+                with pytest.raises(GitTokenMissingError):
+                    self.cls.get_github_token()
+        assert mocked_open.mock_calls == [
+            call('/my/home/.gitconfig', 'r'),
+            call().__enter__(),
+            call().readlines(),
+            call().__exit__(None, None, None)
+        ]
+
+    def test_get_github_token_no_key(self):
+        new_env = {
+            'foo': 'bar',
+            'HOME': '/my/home',
+        }
+        gitconfig_content = dedent("""
+        ################################################################
+        [user]
+                name = My Name
+                email = me@example.com
+        [push]
+                default = simple
+        [github]
+                user = ghUsername
+        """)
+
+        mocked_open = mock_open(read_data=gitconfig_content)
+        if sys.version_info[0] == 3:
+            mock_open_target = 'builtins.open'
+        else:
+            mock_open_target = '__builtin__.open'
+
+        with patch.dict('%s.os.environ' % pbm, new_env):
+            with patch(mock_open_target, mocked_open, create=True):
+                with pytest.raises(GitTokenMissingError):
+                    self.cls.get_github_token()
+        assert mocked_open.mock_calls == [
+            call('/my/home/.gitconfig', 'r'),
+            call().__enter__(),
+            call().readlines(),
+            call().__exit__(None, None, None)
+        ]

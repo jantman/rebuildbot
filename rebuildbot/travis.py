@@ -41,6 +41,7 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 
 import time
 import logging
+from rebuildbot.exceptions import (PollTimeoutException, TravisTriggerError)
 
 try:
     from urllib import quote
@@ -196,46 +197,3 @@ class Travis(object):
         """
         s = 'https://travis-ci.org/%s/builds/%s' % (repo_slug, build_num)
         return s
-
-
-class TravisTriggerError(Exception):
-    """Raised when triggering a Travis build returns a bad response code."""
-
-    def __init__(self, repo, branch, url, status_code, headers, text):
-        self.repo = repo
-        self.branch = branch
-        self.url = url
-        self.status_code = status_code
-        self.headers = headers
-        self.text = text
-
-        msg = "Got {sc} response code when triggering build of {r} ({b}) " \
-              "via <{url}>:\nHeaders:\n{h}\nResponse Body:\n{t}".format(
-                  sc=status_code,
-                  r=repo,
-                  b=branch,
-                  url=url,
-                  h=headers,
-                  t=text
-              )
-        super(TravisTriggerError, self).__init__(msg)
-
-
-class PollTimeoutException(Exception):
-    """
-    Raised when polling the Travis API for a change times out.
-    """
-
-    def __init__(self, poll_type, repo, wait_time, num_times):
-        self.poll_type = poll_type
-        self.repo = repo
-        self.wait_time = wait_time
-        self.num_times = num_times
-
-        msg = "Polling Travis for update to {pt} on {r} timed out after {s} " \
-              "seconds".format(
-                  pt=poll_type,
-                  r=repo,
-                  s=(wait_time * num_times)
-              )
-        super(PollTimeoutException, self).__init__(msg)

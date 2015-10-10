@@ -39,13 +39,14 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 
 import os
 # import time
-from ConfigParser import SafeConfigParser
+from ConfigParser import (SafeConfigParser, NoSectionError, NoOptionError)
 from StringIO import StringIO
 import logging
 
 # from dateutil import parser
 
 from .travis import Travis
+from .exceptions import GitTokenMissingError
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,7 @@ class ReBuildBot(object):
         6) This final result dict will be transformed into HTML, which will be
         put both in S3 and sent via email.
         """
-        # repos = self.travis.get_repos()
+        #repos = self.travis.get_repos()
         repo_name = 'jantman/pydnstest'
         last_build = self.travis.get_last_build(repo_name)
         last_build_url = self.travis.url_for_build(repo_name, last_build.id)
@@ -139,6 +140,9 @@ class ReBuildBot(object):
             config_lines = fh.readlines()
         config = SafeConfigParser()
         config.readfp(StringIO(''.join([l.lstrip() for l in config_lines])))
-        token = config.get('github', 'token')
+        try:
+            token = config.get('github', 'token')
+        except (NoSectionError, NoOptionError):
+            raise GitTokenMissingError()
         logger.debug("Using GitHub token from ~/.gitconfig")
         return token

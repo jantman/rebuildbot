@@ -1,8 +1,6 @@
 """
 rebuildbot/tests/test_travis.py
 
-Wrapper around travispy
-
 The latest version of this package is available at:
 <https://github.com/jantman/rebuildbot>
 
@@ -42,8 +40,10 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 import sys
 import pytest
 from requests import Response
-from rebuildbot.travis import (Travis, CHECK_WAIT_TIME, POLL_NUM_TIMES,
-                               PollTimeoutException, TravisTriggerError)
+
+from rebuildbot.travis import (Travis, CHECK_WAIT_TIME, POLL_NUM_TIMES)
+from rebuildbot.exceptions import (PollTimeoutException, TravisTriggerError)
+
 from travispy import TravisPy
 from travispy.entities.repo import Repo
 from travispy.entities.user import User
@@ -322,31 +322,3 @@ class TestTravis(object):
     def test_url_for_build(self):
         res = self.cls.url_for_build('a/b', 123)
         assert res == 'https://travis-ci.org/a/b/builds/123'
-
-
-class TestTravisTriggerError(object):
-
-    def test_error(self):
-        ex = TravisTriggerError('myrepo', 'mybranch', 'myurl', 'SC',
-                                'myheaders', 'mytext')
-        assert ex.repo == 'myrepo'
-        assert ex.branch == 'mybranch'
-        assert ex.url == 'myurl'
-        assert ex.status_code == 'SC'
-        assert ex.headers == 'myheaders'
-        assert ex.text == 'mytext'
-        assert ex.message == "Got SC response code when triggering build of " \
-            "myrepo (mybranch) via <myurl>:\nHeaders:\nmyheaders\nResponse " \
-            "Body:\nmytext"
-
-
-class TestPollTimeoutException(object):
-
-    def test_exception(self):
-        ex = PollTimeoutException('mytype', 'myrepo', 3, 2)
-        assert ex.poll_type == 'mytype'
-        assert ex.repo == 'myrepo'
-        assert ex.wait_time == 3
-        assert ex.num_times == 2
-        assert ex.message == "Polling Travis for update to mytype on myrepo " \
-            "timed out after 6 seconds"
