@@ -39,7 +39,6 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 ################################################################################
 """
 
-import os
 import time
 import logging
 import json
@@ -115,9 +114,9 @@ class Travis(object):
             time.sleep(CHECK_WAIT_TIME)
             c += 1
         else:
-            logger.error("ERROR: Triggered build of %s branch %s, but last_build"
-                         " has not changed in %d seconds.", repo_name, branch,
-                         (c * CHECK_WAIT_TIME))
+            logger.error("ERROR: Triggered build of %s branch %s, but "
+                         "last_build has not changed in %d seconds.", repo_name,
+                         branch, (c * CHECK_WAIT_TIME))
             return None
         return build_id
 
@@ -156,8 +155,8 @@ class Travis(object):
         if res.status_code >= 200 and res.status_code < 300:
             logger.info("Successfully triggered build on %s", repo_name)
             return True
-        logger.error("Error: attempt to trigger build via %s got status code %s",
-                     url, res.status_code)
+        logger.error("Error: attempt to trigger build via %s got status code "
+                     "%s", url, res.status_code)
         logger.debug("Response headers: %s", res.headers)
         logger.debug("Response text: %s", res.text)
         return False

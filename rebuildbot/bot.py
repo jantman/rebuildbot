@@ -38,13 +38,12 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 """
 
 import os
-import json
-import time
+# import time
 from ConfigParser import SafeConfigParser
 from StringIO import StringIO
 import logging
 
-from dateutil import parser
+# from dateutil import parser
 
 from .travis import Travis
 
@@ -93,21 +92,20 @@ class ReBuildBot(object):
         3) After each local build, we want to poll the Travis list, if it's not
         empty, and update the result dict with that information.
         4) Print debugging information throughout.
-        5) Once all builds are done or have timed out, we'll build a final result
-        dict of all repos, their Travis build/status/link if applicable, and their
-        local build/status/link if applicable.
+        5) Once all builds are done or have timed out, we'll build a final
+        result dict of all repos, their Travis build/status/link if applicable,
+        and their local build/status/link if applicable.
         6) This final result dict will be transformed into HTML, which will be
         put both in S3 and sent via email.
         """
-        repos = self.travis.get_repos()
-        # END DEBUG
+        # repos = self.travis.get_repos()
         repo_name = 'jantman/pydnstest'
         last_build = self.travis.get_last_build(repo_name)
         last_build_url = self.travis.url_for_build(repo_name, last_build.id)
         logger.info("Last build of %s: #%s (%s) started at %s <%s> (%s)",
                     repo_name, last_build.number, last_build.id,
                     last_build.started_at, last_build_url, last_build.color)
-        last_build_dt = parser.parse(last_build.started_at)
+        # last_build_dt = parser.parse(last_build.started_at)
         build_id = self.travis.run_build(repo_name)
         logger.info("New build of %s started: %s", repo_name, build_id)
 
@@ -124,7 +122,6 @@ class ReBuildBot(object):
 
     def connect_github(self):
         pass
-
 
     def get_github_token(self):
         """
