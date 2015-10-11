@@ -59,6 +59,10 @@ class BuildInfo(object):
         self.run_local = True  # whether or not to run local build
         self.travis_trigger_error = None  # Exception when triggering travis
         self.travis_build_id = None  # Travis Build ID of the new build
+        self.travis_build_result = None  # travispy.entities.build.Build
+        self.local_build_return_code = None  # local build exit code
+        self.local_build_outout = None  # string local build output
+        self.local_build_exception = None  # exception when running local build
 
         if local_script is None:
             self.run_local = False
@@ -81,3 +85,26 @@ class BuildInfo(object):
         :type build_id: int
         """
         self.travis_build_id = build_id
+
+    def set_travis_finished_build(self, build):
+        """
+        Update the object with a reference to a finished Travis Build.
+
+        :param build: the finished build
+        :type build: :py:class:`travispy.entities.build.Build`
+        """
+        self.travis_build_result = build
+
+    def set_local_build(self, return_code, output, excinfo=None):
+        """
+        When a local build is finished, update with its return code and
+        output string.
+
+        :param return_code: the return code of the build script
+        :type return_code: int
+        :param output: the string output of the build script
+        :type output: string
+        """
+        self.local_build_return_code = return_code
+        self.local_build_outout = output
+        self.local_build_exception = excinfo

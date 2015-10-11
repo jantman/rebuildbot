@@ -113,9 +113,11 @@ class Travis(object):
                     "state=%s", repo_slug, repo.id, repo.pending, repo.queued,
                     repo.running, repo.state)
         last_build = repo.last_build
-        logger.debug("Found last build as #%s (%s), state=%s, started_at=%s ",
+        logger.debug("Found last build as #%s (%s), state=%s (%s), "
+                     "started_at=%s (<%s>)",
                      last_build.number, last_build.id,
-                     last_build.state, last_build.started_at)
+                     last_build.state, last_build.color, last_build.started_at,
+                     self.url_for_build(repo_slug, last_build.id))
         self.trigger_travis(repo_slug, branch=branch)
         return self.wait_for_new_build(repo_slug, last_build.id)
 

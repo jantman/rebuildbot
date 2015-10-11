@@ -90,39 +90,64 @@ class ReBuildBot(object):
         """
         self.builds = self.find_projects(projects)
         self.start_travis_builds()
-        return
-        # NOTES:
+        # @TODO probably need a timeout here
+        while self.have_work_to_do:
+            self.runner_loop()
+        self.handle_results()
+
+    def runner_loop(self):
         """
-        TODO:
-        1) we'll need find_projects_travis() and find_projects_github(), each
-        returning a list of repository slugs. For the Travis ones, we want to
-        kick off builds of them and append the running build_ids to a list,
-        checking back and updating a result dict with the result of the build,
-        the build ID, and a link to the build.
-        2) For local builds, we'll do these once Travis is started, but before
+        Main loop that polls Travis for build results, and runs local builds.
+
+        Loop first polls all non-complete Travis builds for their result, and
+        if the build has completed, updates the appropriate ``self.builds``
+        object. After each Travis polling cycle, one local build is run to
+        completion (serially).
+
+        This logic is optimized to reduce load on the host machine by running
+        local builds serially. Maybe this should be changed at some point, but
+        since my use case is mainly running
+        `Beaker <https://github.com/puppetlabs/beaker/>`_ tests for Puppet
+        modules, which spin up VirtualBox machines, I only want one running
+        at a time.
+        """
+        # poll travis for results, update if we have any
+        # find a local build to run, and run it, then update results
+        """
+        - For local builds, we'll do these once Travis is started, but before
         we poll travis. For each one, we'll do the git clone, get it on the
         branch we want, and then start the local build. We'll capture output
         and stderr and the exit code, and put that to an S3 bucket. Once that's
         done, we'll update a result dict with the exit code (boolean, 0 or not)
         and a link to the S3 bucket output.
-        3) After each local build, we want to poll the Travis list, if it's not
-        empty, and update the result dict with that information.
-        4) Print debugging information throughout.
-        5) Once all builds are done or have timed out, we'll build a final
-        result dict of all repos, their Travis build/status/link if applicable,
-        and their local build/status/link if applicable.
-        6) This final result dict will be transformed into HTML, which will be
-        put both in S3 and sent via email.
         """
-        repo_name = 'jantman/pydnstest'
-        last_build = self.travis.get_last_build(repo_name)
-        last_build_url = self.travis.url_for_build(repo_name, last_build.id)
-        logger.info("Last build of %s: #%s (%s) started at %s <%s> (%s)",
-                    repo_name, last_build.number, last_build.id,
-                    last_build.started_at, last_build_url, last_build.color)
-        # last_build_dt = parser.parse(last_build.started_at)
-        build_id = self.travis.run_build(repo_name)
-        logger.info("New build of %s started: %s", repo_name, build_id)
+        pass
+
+    @property
+    def have_work_to_do(self):
+        """
+        Return True while we have Travis builds running or local builds left
+        to run; False otherwise.
+
+        :returns: whether there are builds running or remaining to run
+        :rtype: boolean
+        """
+        for name, bi in self.builds.items():
+            if (
+                    bi.travis_build_id is not None and
+                    bi.travis_build_result is None
+            ):
+                return True
+            if bi.run_local and bi.local_build_return_code is None:
+                return True
+        return False
+
+    def handle_results(self):
+        """
+        Once all builds are complete, collect the results, upload the relevant
+        information to S3, and then build the final report and send it.
+        """
+        pass
 
     def find_projects(self, projects):
         """
@@ -204,4 +229,18 @@ class ReBuildBot(object):
         error or exception is encountered while triggering the build, store it
         in the BuildInfo object and continue on.
         """
-        pass
+        started = 0
+        errored = 0
+        logger.info("Triggering Travis builds")
+        for repo_slug, build_info in sorted(self.builds.items()):
+            if build_info.run_travis is False:
+                continue
+            try:
+                res = self.travis.run_build(repo_slug)
+                build_info.set_travis_build_id(res)
+            except Exception as ex:
+                build_info.set_travis_trigger_error(ex)
+                logger.exception(ex)
+        logger.info("Finished triggering Travis builds; triggered %s "
+                    "successfully, %s had errors being triggered", started,
+                    errored)

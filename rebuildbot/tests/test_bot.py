@@ -46,8 +46,10 @@ from boto.s3.connection import S3Connection
 
 from rebuildbot.bot import ReBuildBot
 from rebuildbot.travis import Travis
-from rebuildbot.exceptions import GitTokenMissingError
+from rebuildbot.exceptions import (GitTokenMissingError, PollTimeoutException,
+                                   TravisTriggerError)
 from rebuildbot.github_wrapper import GitHubWrapper
+from rebuildbot.buildinfo import BuildInfo
 
 from travispy.errors import TravisError
 
@@ -57,9 +59,9 @@ if (
         sys.version_info[0] < 3 or
         sys.version_info[0] == 3 and sys.version_info[1] < 4
 ):
-    from mock import patch, call, Mock, mock_open
+    from mock import patch, call, Mock, mock_open, PropertyMock
 else:
-    from unittest.mock import patch, call, Mock, mock_open
+    from unittest.mock import patch, call, Mock, mock_open, PropertyMock
 
 pbm = 'rebuildbot.bot'  # patch base path for this module
 pb = 'rebuildbot.bot.ReBuildBot'  # patch base for class
@@ -330,13 +332,89 @@ class TestReBuildBot(object):
         assert mock_s3.mock_calls == [call()]
 
     def test_run(self):
-        with patch('%s.find_projects' % pb) as mock_find:
+        with nested(
+                patch('%s.find_projects' % pb),
+                patch('%s.start_travis_builds' % pb),
+                patch('%s.have_work_to_do' % pb, new_callable=PropertyMock),
+                patch('%s.runner_loop' % pb),
+                patch('%s.handle_results' % pb),
+        ) as (
+            mock_find,
+            mock_start_travis,
+            mock_have_work,
+            mock_runner_loop,
+            mock_handle_results,
+        ):
+            mock_have_work.side_effect = [True, True, False]
             self.cls.run()
         assert mock_find.mock_calls == [call(None)]
         assert self.cls.builds == mock_find.return_value
+        assert mock_start_travis.mock_calls == [call()]
+        assert mock_have_work.mock_calls == [call(), call(), call()]
+        assert mock_runner_loop.mock_calls == [call(), call()]
+        assert mock_handle_results.mock_calls == [call()]
 
     def test_run_with_projects(self):
-        with patch('%s.find_projects' % pb) as mock_find:
+        with nested(
+                patch('%s.find_projects' % pb),
+                patch('%s.start_travis_builds' % pb),
+                patch('%s.have_work_to_do' % pb, new_callable=PropertyMock),
+                patch('%s.runner_loop' % pb),
+                patch('%s.handle_results' % pb),
+        ) as (
+            mock_find,
+            mock_start_travis,
+            mock_have_work,
+            mock_runner_loop,
+            mock_handle_results,
+        ):
+            mock_have_work.return_value = False
             self.cls.run(['foo/bar', 'baz/blam'])
         assert mock_find.mock_calls == [call(['foo/bar', 'baz/blam'])]
         assert self.cls.builds == mock_find.return_value
+        assert mock_start_travis.mock_calls == [call()]
+        assert mock_have_work.mock_calls == [call()]
+        assert mock_runner_loop.mock_calls == []
+        assert mock_handle_results.mock_calls == [call()]
+
+    def test_start_travis_builds(self):
+
+        exc_blam = PollTimeoutException('poll_type', 'repo', 2, 3)
+
+        exc_blarg = TravisTriggerError('repo', 'branch', 'url', 'status_code',
+                                       'headers', 'text')
+
+        def se_run_travis(repo_slug, branch='master'):
+            if repo_slug == 'foo/bar':
+                return 1
+            if repo_slug == 'foo/blam':
+                raise exc_blam
+            if repo_slug == 'foo/blarg':
+                raise exc_blarg
+
+        bi_bar = BuildInfo('foo/bar', None)
+        bi_bar.run_travis = True
+        bi_baz = BuildInfo('foo/baz', None)
+        bi_blam = BuildInfo('foo/blam', None)
+        bi_blam.run_travis = True
+        bi_blarg = BuildInfo('foo/blarg', None)
+        bi_blarg.run_travis = True
+
+        self.cls.builds = {
+            'foo/bar': bi_bar,
+            'foo/baz': bi_baz,
+            'foo/blam': bi_blam,
+            'foo/blarg': bi_blarg,
+        }
+        self.cls.travis.run_build.side_effect = se_run_travis
+        self.cls.start_travis_builds()
+        assert self.cls.travis.run_build.mock_calls == [
+            call('foo/bar'),
+            call('foo/blam'),
+            call('foo/blarg'),
+        ]
+        assert self.cls.builds['foo/bar'].travis_build_id == 1
+        assert self.cls.builds['foo/blam'].travis_build_id is None
+        assert self.cls.builds['foo/blam'].travis_trigger_error == exc_blam
+        assert self.cls.builds['foo/blarg'].travis_build_id is None
+        assert self.cls.builds['foo/blarg'].travis_trigger_error == exc_blarg
