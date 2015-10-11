@@ -67,8 +67,8 @@ class GitHubWrapper(object):
         full name / slug, and values are the contents of .rebuildbot.sh in the
         repository.
 
-        @returns: dict of repository slug strings to .rebuildbot.sh content str
-        @rtype: dict
+        :returns: dict of repository slug strings to .rebuildbot.sh content str
+        :rtype: dict
         """
         projects = {}
         for repo in self.get_repos():
@@ -90,10 +90,10 @@ class GitHubWrapper(object):
         Given the full name to a repository, return the content of
         .rebuildbot.sh or None if not present.
 
-        @param repo_full_name: the full name / slug for the repo
-        @type repo_full_name: string
-        @param branch_name: the branch name to check
-        @type branch_name: string
+        :param repo_full_name: the full name / slug for the repo
+        :type repo_full_name: string
+        :param branch_name: the branch name to check
+        :type branch_name: string
         """
         repo = self.github.get_repo(repo_full_name)
         try:
@@ -110,8 +110,8 @@ class GitHubWrapper(object):
         excludes repositories owned by organizations, or that the current user
         is a contributor to)
 
-        @returns: list of :py:class:`github.github.Repository` objects
-        @rtype: list of :py:class:`github.github.Repository`
+        :returns: list of :py:class:`github.github.Repository` objects
+        :rtype: list of :py:class:`github.github.Repository`
         """
         repos = []
         user = self.github.get_user()
@@ -128,12 +128,12 @@ class GitHubWrapper(object):
         Return true if the specified branch of the repo has a HEAD commit within
         the last day, False otherwise.
 
-        @param repo_obj: the repository to inspect
-        @type repo_obj: :py:class:`github.github.Repository`
-        @param branch_name: the branch name to check
-        @type branch_name: string
-        @returns: True if the last commit is within the last day, else False
-        @rtype: boolean
+        :param repo_obj: the repository to inspect
+        :type repo_obj: :py:class:`github.github.Repository`
+        :param branch_name: the branch name to check
+        :type branch_name: string
+        :returns: True if the last commit is within the last day, else False
+        :rtype: boolean
         """
         branch = repo_obj.get_branch(branch_name)
         # branch.commit is the HEAD commit of the branch

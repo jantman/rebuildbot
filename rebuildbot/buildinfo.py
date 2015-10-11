@@ -48,10 +48,10 @@ class BuildInfo(object):
         """
         Initialize a BuildInfo data container.
 
-        @param repo_slug: the repository slug / full name
-        @type repo_slug: string
-        @param local_script: the contents of .rebuildbot.sh for the repo
-        @type local_script: string
+        :param repo_slug: the repository slug / full name
+        :type repo_slug: string
+        :param local_script: the contents of .rebuildbot.sh for the repo
+        :type local_script: string
         """
         self.slug = repo_slug  # repo full name / slug
         self.local_script = local_script  # .rebuildbot.sh local build script

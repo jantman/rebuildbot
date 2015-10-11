@@ -66,9 +66,9 @@ class Travis(object):
         """
         Connect to TravisCI. Return a connected TravisPy instance.
 
-        @param github_token: GitHub access token to auth to Travis with
-        @type github_token: str
-        @rtype: :py:class:`TravisPy`
+        :param github_token: GitHub access token to auth to Travis with
+        :type github_token: str
+        :rtype: :py:class:`TravisPy`
         """
         self.travis = TravisPy.github_auth(github_token)
         self.user = self.travis.user()
@@ -83,8 +83,8 @@ class Travis(object):
         begins with the user login; it ignores organization repos or repos
         that the user is a collaborator on.
 
-        @returns: list of the user's repository slugs
-        @rtype: list of strings
+        :returns: list of the user's repository slugs
+        :rtype: list of strings
         """
         repos = []
         for r in self.travis.repos(member=self.user.login):
@@ -100,13 +100,13 @@ class Travis(object):
         branch. Wait for the build repository's latest build ID to change,
         an then return the build ID of the triggered build, or None on error.
 
-        @param repo_slug: repository slug (<username>/<repo_name>)
-        @type repo_slug: string
-        @param branch: name of the branch to build
-        @type branch: string
-        @raises: PollTimeoutException, TravisTriggerError
-        @returns: build ID of the triggered build, or None on error
-        @rtype: int or None
+        :param repo_slug: repository slug (<username>/<repo_name>)
+        :type repo_slug: string
+        :param branch: name of the branch to build
+        :type branch: string
+        :raises: PollTimeoutException, TravisTriggerError
+        :returns: build ID of the triggered build, or None on error
+        :rtype: int or None
         """
         repo = self.travis.repo(repo_slug)
         logger.info("Travis Repo %s (%s): pending=%s queued=%s running=%s "
@@ -128,13 +128,13 @@ class Travis(object):
         seconds, up to :py:const:`~.POLL_NUM_TRIES` times. If the ID has not
         changed at the end, raise a :py:class:`~.PollTimeoutException`.
 
-        @param repo_slug: the slug for the repo to check
-        @type repo_slug: string
-        @param last_build_id: the ID of the last build
-        @type last_build_id: int
-        @raises: PollTimeoutException, TravisTriggerError
-        @returns: ID of the new build
-        @rtype: int
+        :param repo_slug: the slug for the repo to check
+        :type repo_slug: string
+        :param last_build_id: the ID of the last build
+        :type last_build_id: int
+        :raises: PollTimeoutException, TravisTriggerError
+        :returns: ID of the new build
+        :rtype: int
         """
         logger.info("Waiting up to %s seconds for build of %s to start",
                     (POLL_NUM_TIMES * CHECK_WAIT_TIME), repo_slug)
@@ -165,11 +165,11 @@ class Travis(object):
         `trigger builds <http://docs.travis-ci.com/user/triggering-builds/>`_
         is not supported. This method adds that.
 
-        @raises TravisTriggerError
-        @param repo_slug: repository slug (<username>/<repo_name>)
-        @type repo_slug: string
-        @param branch: name of the branch to build
-        @type branch: string
+        :raises TravisTriggerError
+        :param repo_slug: repository slug (<username>/<repo_name>)
+        :type repo_slug: string
+        :param branch: name of the branch to build
+        :type branch: string
         """
         body = {
             'request': {

@@ -64,9 +64,9 @@ class ReBuildBot(object):
         """
         Initialize ReBuildBot and attempt to connect to all external services.
 
-        @param dry_run: log what would be done, and perform normal output/
+        :param dry_run: log what would be done, and perform normal output/
           notifications, but do not actually run any tests
-        @type dry_run: boolean
+        :type dry_run: boolean
         """
         self.gh_token = self.get_github_token()
         self.github = GitHubWrapper(self.gh_token)
@@ -84,9 +84,9 @@ class ReBuildBot(object):
         or else all projects found from Travis and GitHub.
         Send notifications when done.
 
-        @param projects: list of project/repository full names (slugs) to build,
+        :param projects: list of project/repository full names (slugs) to build,
         if building a subset of all
-        @type projects: list of strings
+        :type projects: list of strings
         """
         self.builds = self.find_projects(projects)
         self.start_travis_builds()
@@ -133,11 +133,11 @@ class ReBuildBot(object):
         call :py:meth:`~.GitHubWrapper.get_find_projects` and
         :py:meth:`~.Travis.get_repos` to find the eligible projects.
 
-        @param projects: list of project/repository full names (slugs) to build,
+        :param projects: list of project/repository full names (slugs) to build,
         if building a subset of all
-        @type projects: list of strings
-        @returns: dict of repo/project name to BuildInfo object for each repo.
-        @rtype: dict
+        :type projects: list of strings
+        :returns: dict of repo/project name to BuildInfo object for each repo.
+        :rtype: dict
         """
         builds = {}
         if projects is None:
@@ -168,7 +168,7 @@ class ReBuildBot(object):
         Connect to Amazon S3 via :py:func:`boto.connect_s3` and return the
         connection object.
 
-        @rtype: :py:class:`boto.s3.connection.S3Connection`
+        :rtype: :py:class:`boto.s3.connection.S3Connection`
         """
         conn = boto.connect_s3()
         return conn
@@ -178,7 +178,7 @@ class ReBuildBot(object):
         Find your GitHub API token. First look in the ``GITHUB_TOKEN`` env
         variable, then look in ``~/.gitconfig``
 
-        @rtype: string
+        :rtype: string
         """
         e = os.environ.get('GITHUB_TOKEN', None)
         if e is not None:
