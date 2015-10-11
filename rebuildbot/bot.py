@@ -88,7 +88,8 @@ class ReBuildBot(object):
         if building a subset of all
         @type projects: list of strings
         """
-        self.find_projects(projects)  # populates self.builds
+        self.builds = self.find_projects(projects)
+        self.start_travis_builds()
         return
         # NOTES:
         """
@@ -125,8 +126,8 @@ class ReBuildBot(object):
 
     def find_projects(self, projects):
         """
-        Find which projects to run, and populate self.builds with
-        :py:class:`~.BuildInfo` objects for each project.
+        Find which projects to run, and create an :py:class:`~.BuildInfo` object
+        for each project. Return a dict of project/repo name to BuildInfo obj.
 
         If ``projects`` is not None, use only those repository names. Otherwise,
         call :py:meth:`~.GitHubWrapper.get_find_projects` and
@@ -135,18 +136,21 @@ class ReBuildBot(object):
         @param projects: list of project/repository full names (slugs) to build,
         if building a subset of all
         @type projects: list of strings
+        @returns: dict of repo/project name to BuildInfo object for each repo.
+        @rtype: dict
         """
+        builds = {}
         if projects is None:
             logger.info("Finding candidate projects from Travis and GitHub")
             # GitHub
             for repo, config in self.github.find_projects().items():
-                self.builds[repo] = BuildInfo(repo, config)
+                builds[repo] = BuildInfo(repo, config)
             # Travis
             for repo in self.travis.get_repos():
-                if repo not in self.builds:
-                    self.builds[repo] = BuildInfo(repo, None)
-                self.builds[repo].run_travis = True
-            return
+                if repo not in builds:
+                    builds[repo] = BuildInfo(repo, None)
+                builds[repo].run_travis = True
+            return builds
         logger.info("Using explicit projects list: %s", projects)
         for project in projects:
             config = self.github.get_project_config(project)
@@ -156,8 +160,8 @@ class ReBuildBot(object):
                 tmp_build.run_travis = True
             except TravisError:
                 pass
-            self.builds[project] = tmp_build
-        return
+            builds[project] = tmp_build
+        return builds
 
     def connect_s3(self):
         """
@@ -191,3 +195,13 @@ class ReBuildBot(object):
             raise GitTokenMissingError()
         logger.debug("Using GitHub token from ~/.gitconfig")
         return token
+
+    def start_travis_builds(self):
+        """
+        Iterate all BuildInfo objects in ``self.builds``; for any with
+        ``run_travis`` True, start a Travis build of the repository and update
+        the BuildInfo object with the Build ID of the triggered build. If an
+        error or exception is encountered while triggering the build, store it
+        in the BuildInfo object and continue on.
+        """
+        pass

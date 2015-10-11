@@ -261,22 +261,22 @@ class TestReBuildBot(object):
             'a/p1',
             'a/p3',
         ]
-        self.cls.find_projects(None)
+        res = self.cls.find_projects(None)
         assert self.cls.github.mock_calls == [call.find_projects()]
         assert self.cls.travis.mock_calls == [call.get_repos()]
-        assert len(self.cls.builds) == 3
-        assert self.cls.builds['a/p1'].slug == 'a/p1'
-        assert self.cls.builds['a/p1'].local_script == 'config_a_p1'
-        assert self.cls.builds['a/p1'].run_travis is True
-        assert self.cls.builds['a/p1'].run_local is True
-        assert self.cls.builds['a/p2'].slug == 'a/p2'
-        assert self.cls.builds['a/p2'].local_script == 'config_a_p2'
-        assert self.cls.builds['a/p2'].run_travis is False
-        assert self.cls.builds['a/p2'].run_local is True
-        assert self.cls.builds['a/p3'].slug == 'a/p3'
-        assert self.cls.builds['a/p3'].local_script is None
-        assert self.cls.builds['a/p3'].run_travis is True
-        assert self.cls.builds['a/p3'].run_local is False
+        assert len(res) == 3
+        assert res['a/p1'].slug == 'a/p1'
+        assert res['a/p1'].local_script == 'config_a_p1'
+        assert res['a/p1'].run_travis is True
+        assert res['a/p1'].run_local is True
+        assert res['a/p2'].slug == 'a/p2'
+        assert res['a/p2'].local_script == 'config_a_p2'
+        assert res['a/p2'].run_travis is False
+        assert res['a/p2'].run_local is True
+        assert res['a/p3'].slug == 'a/p3'
+        assert res['a/p3'].local_script is None
+        assert res['a/p3'].run_travis is True
+        assert res['a/p3'].run_local is False
 
     def test_find_projects_list(self):
 
@@ -296,7 +296,7 @@ class TestReBuildBot(object):
         ]
         self.cls.travis.get_last_build.side_effect = se_last_build
 
-        self.cls.find_projects(['a/p1', 'a/p2', 'a/p3'])
+        res = self.cls.find_projects(['a/p1', 'a/p2', 'a/p3'])
         assert self.cls.github.mock_calls == [
             call.get_project_config('a/p1'),
             call.get_project_config('a/p2'),
@@ -307,19 +307,19 @@ class TestReBuildBot(object):
             call.get_last_build('a/p2'),
             call.get_last_build('a/p3'),
         ]
-        assert len(self.cls.builds) == 3
-        assert self.cls.builds['a/p1'].slug == 'a/p1'
-        assert self.cls.builds['a/p1'].local_script == 'config_a_p1'
-        assert self.cls.builds['a/p1'].run_travis is True
-        assert self.cls.builds['a/p1'].run_local is True
-        assert self.cls.builds['a/p2'].slug == 'a/p2'
-        assert self.cls.builds['a/p2'].local_script == 'config_a_p2'
-        assert self.cls.builds['a/p2'].run_travis is False
-        assert self.cls.builds['a/p2'].run_local is True
-        assert self.cls.builds['a/p3'].slug == 'a/p3'
-        assert self.cls.builds['a/p3'].local_script is None
-        assert self.cls.builds['a/p3'].run_travis is True
-        assert self.cls.builds['a/p3'].run_local is False
+        assert len(res) == 3
+        assert res['a/p1'].slug == 'a/p1'
+        assert res['a/p1'].local_script == 'config_a_p1'
+        assert res['a/p1'].run_travis is True
+        assert res['a/p1'].run_local is True
+        assert res['a/p2'].slug == 'a/p2'
+        assert res['a/p2'].local_script == 'config_a_p2'
+        assert res['a/p2'].run_travis is False
+        assert res['a/p2'].run_local is True
+        assert res['a/p3'].slug == 'a/p3'
+        assert res['a/p3'].local_script is None
+        assert res['a/p3'].run_travis is True
+        assert res['a/p3'].run_local is False
 
     def test_connect_s3(self):
         mock_conn = Mock(spec_set=S3Connection)
@@ -333,8 +333,10 @@ class TestReBuildBot(object):
         with patch('%s.find_projects' % pb) as mock_find:
             self.cls.run()
         assert mock_find.mock_calls == [call(None)]
+        assert self.cls.builds == mock_find.return_value
 
     def test_run_with_projects(self):
         with patch('%s.find_projects' % pb) as mock_find:
             self.cls.run(['foo/bar', 'baz/blam'])
         assert mock_find.mock_calls == [call(['foo/bar', 'baz/blam'])]
+        assert self.cls.builds == mock_find.return_value
