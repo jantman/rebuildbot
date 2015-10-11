@@ -93,6 +93,11 @@ class Runner(object):
                        help='log what would be done, and perform '
                        'normal output/notifications, but do not '
                        'actually run any tests')
+        p.add_argument('-R', '--repo', dest='repos', action='append',
+                       default=None, help='repository (user/repo name)'
+                       'to test, instead of discovering all '
+                       'possibilities. Can be specified multiple '
+                       'times.')
         args = p.parse_args(argv)
         return args
 
@@ -116,7 +121,7 @@ class Runner(object):
             raise SystemExit(0)
 
         bot = ReBuildBot(dry_run=args.dry_run)
-        bot.run()
+        bot.run(projects=args.repos)
 
 
 def console_entry_point():

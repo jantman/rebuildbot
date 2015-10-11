@@ -43,10 +43,14 @@ from ConfigParser import (SafeConfigParser, NoSectionError, NoOptionError)
 from StringIO import StringIO
 import logging
 
-# from dateutil import parser
+import boto
+
+from travispy.errors import TravisError
 
 from .travis import Travis
 from .exceptions import GitTokenMissingError
+from .github_wrapper import GitHubWrapper
+from .buildinfo import BuildInfo
 
 logger = logging.getLogger(__name__)
 
@@ -65,22 +69,27 @@ class ReBuildBot(object):
         @type dry_run: boolean
         """
         self.gh_token = self.get_github_token()
-        self.github = self.connect_github()
+        self.github = GitHubWrapper(self.gh_token)
         self.travis = Travis(self.gh_token)
         self.s3 = self.connect_s3()
         self.dry_run = dry_run
+        """mapping of repository slugs to BuildInfo objects"""
+        self.builds = {}
 
     def run(self, projects=None):
         """
         Main entry point for ReBuildBot.
 
         Build either a specified list of projects (by GitHub repository name),
-        or else all projects found by :py:meth:`~.find_projects`. Send
-        notifications when done.
+        or else all projects found from Travis and GitHub.
+        Send notifications when done.
 
-        projects is either None, or a list of github repository slugs
-        (i.e. <user>/<repo name>). If None, all repositories will be built.
+        @param projects: list of project/repository full names (slugs) to build,
+        if building a subset of all
+        @type projects: list of strings
         """
+        self.find_projects(projects)  # populates self.builds
+        return
         # NOTES:
         """
         TODO:
@@ -104,7 +113,6 @@ class ReBuildBot(object):
         6) This final result dict will be transformed into HTML, which will be
         put both in S3 and sent via email.
         """
-        # repos = self.travis.get_repos()
         repo_name = 'jantman/pydnstest'
         last_build = self.travis.get_last_build(repo_name)
         last_build_url = self.travis.url_for_build(repo_name, last_build.id)
@@ -115,19 +123,51 @@ class ReBuildBot(object):
         build_id = self.travis.run_build(repo_name)
         logger.info("New build of %s started: %s", repo_name, build_id)
 
-    def find_projects(self):
+    def find_projects(self, projects):
         """
-        Iterate all GitHub repositories and find any with a .rebuildbot.yml or
-        a .travis.yml; remove from this set any which have had a TravisCI build
-        in the last 24 hours. Return the result.
+        Find which projects to run, and populate self.builds with
+        :py:class:`~.BuildInfo` objects for each project.
+
+        If ``projects`` is not None, use only those repository names. Otherwise,
+        call :py:meth:`~.GitHubWrapper.get_find_projects` and
+        :py:meth:`~.Travis.get_repos` to find the eligible projects.
+
+        @param projects: list of project/repository full names (slugs) to build,
+        if building a subset of all
+        @type projects: list of strings
         """
-        pass
+        if projects is None:
+            logger.info("Finding candidate projects from Travis and GitHub")
+            # GitHub
+            for repo, config in self.github.find_projects().items():
+                self.builds[repo] = BuildInfo(repo, config)
+            # Travis
+            for repo in self.travis.get_repos():
+                if repo not in self.builds:
+                    self.builds[repo] = BuildInfo(repo, None)
+                self.builds[repo].run_travis = True
+            return
+        logger.info("Using explicit projects list: %s", projects)
+        for project in projects:
+            config = self.github.get_project_config(project)
+            tmp_build = BuildInfo(project, config)
+            try:
+                self.travis.get_last_build(project)
+                tmp_build.run_travis = True
+            except TravisError:
+                pass
+            self.builds[project] = tmp_build
+        return
 
     def connect_s3(self):
-        pass
+        """
+        Connect to Amazon S3 via :py:func:`boto.connect_s3` and return the
+        connection object.
 
-    def connect_github(self):
-        pass
+        @rtype: :py:class:`boto.s3.connection.S3Connection`
+        """
+        conn = boto.connect_s3()
+        return conn
 
     def get_github_token(self):
         """

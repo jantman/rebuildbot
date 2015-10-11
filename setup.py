@@ -48,6 +48,7 @@ requires = [
     'TravisPy>=0.3.3,<1',
     'boto>=2.32.0',
     'python-dateutil>=2.4.2',
+    'PyGithub>=1.25',
 ]
 
 classifiers = [

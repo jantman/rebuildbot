@@ -96,6 +96,11 @@ class TestRunner(object):
                                 help='log what would be done, and perform '
                                 'normal output/notifications, but do not '
                                 'actually run any tests'),
+            call().add_argument('-R', '--repo', dest='repos', action='append',
+                                default=None, help='repository (user/repo name)'
+                                'to test, instead of discovering all '
+                                'possibilities. Can be specified multiple '
+                                'times.'),
             call().parse_args([]),
         ]
 
@@ -115,6 +120,18 @@ class TestRunner(object):
         res = self.cls.parse_args(['-d'])
         assert res.dry_run is True
 
+    def test_parse_args_no_repos(self):
+        res = self.cls.parse_args(['-d'])
+        assert res.repos is None
+
+    def test_parse_args_one_repo(self):
+        res = self.cls.parse_args(['-R', 'foo/bar'])
+        assert res.repos == ['foo/bar']
+
+    def test_parse_args_multiple_repos(self):
+        res = self.cls.parse_args(['-R', 'foo/bar', '-R', 'baz/blam'])
+        assert res.repos == ['foo/bar', 'baz/blam']
+
     def test_console_entry_point(self):
         argv = ['/tmp/rebuildbot/runner.py']
         with nested(
@@ -125,7 +142,21 @@ class TestRunner(object):
             self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call(dry_run=False),
-            call().run()
+            call().run(projects=None)
+        ]
+        assert mock_logger.mock_calls == []
+
+    def test_console_entry_point_projects(self):
+        argv = ['/tmp/rebuildbot/runner.py', '-R', 'foo/bar', '-R', 'baz/blam']
+        with nested(
+                patch.object(sys, 'argv', argv),
+                patch('%s.ReBuildBot' % pbm),
+                patch('%s.logger' % pbm),
+        ) as (foo, mock_bot, mock_logger):
+            self.cls.console_entry_point()
+        assert mock_bot.mock_calls == [
+            call(dry_run=False),
+            call().run(projects=['foo/bar', 'baz/blam'])
         ]
         assert mock_logger.mock_calls == []
 
@@ -139,7 +170,7 @@ class TestRunner(object):
             self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call(dry_run=True),
-            call().run()
+            call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
 
@@ -170,7 +201,7 @@ class TestRunner(object):
             self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call(dry_run=False),
-            call().run()
+            call().run(projects=None)
         ]
         assert mock_logger.mock_calls == [
             call.setLevel(logging.INFO)
@@ -189,7 +220,7 @@ class TestRunner(object):
             self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call(dry_run=False),
-            call().run()
+            call().run(projects=None)
         ]
 
         FORMAT = "[%(levelname)s %(filename)s:%(lineno)s - " \
