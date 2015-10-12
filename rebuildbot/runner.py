@@ -52,6 +52,11 @@ requests_log = logging.getLogger("requests")
 requests_log.setLevel(logging.WARNING)
 requests_log.propagate = True
 
+# suppress github internal logging below WARNING level
+github_log = logging.getLogger("github")
+github_log.setLevel(logging.WARNING)
+github_log.propagate = True
+
 
 class Runner(object):
 

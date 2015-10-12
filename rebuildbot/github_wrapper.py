@@ -42,7 +42,7 @@ import datetime
 from base64 import b64decode
 
 from github import Github
-from github.GithubException import UnknownObjectException
+from github.GithubException import (UnknownObjectException, GithubException)
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +142,12 @@ class GitHubWrapper(object):
         :returns: True if the last commit is within the last day, else False
         :rtype: boolean
         """
-        branch = repo_obj.get_branch(branch_name)
+        try:
+            branch = repo_obj.get_branch(branch_name)
+        except GithubException:
+            logger.exception("Unable to get branch %s for repo %s",
+                             branch_name, repo_obj.full_name)
+            return True
         # branch.commit is the HEAD commit of the branch
         dt = branch.commit.commit.author.date
         logger.debug("Repo %s - found HEAD commit of %s as %s on %s",

@@ -51,6 +51,7 @@ from github.GitCommit import GitCommit
 from github.GitAuthor import GitAuthor
 from github.GithubException import UnknownObjectException
 from github.ContentFile import ContentFile
+from github.GithubException import GithubException
 
 from rebuildbot.github_wrapper import GitHubWrapper
 
@@ -236,3 +237,23 @@ class TestGitHubWrapper(object):
         res = self.cls.repo_commit_in_last_day(mock_repo)
         assert res is True
         assert mock_repo.mock_calls == [call.get_branch('master')]
+
+    @freeze_time('2015-01-10 12:13:14')
+    def test_repo_commit_in_last_day_exception(self):
+
+        def se_exc(foo):
+            raise GithubException("foo", "bar")
+
+        mock_repo = Mock(spec_set=Repository)
+        type(mock_repo).full_name = 'myuser/foo'
+        type(mock_repo).owner = Mock(login='myuser')
+        mock_repo.get_branch.side_effect = se_exc
+
+        with patch('%s.logger' % pbm) as mock_logger:
+            res = self.cls.repo_commit_in_last_day(mock_repo)
+        assert res is True
+        assert mock_repo.mock_calls == [call.get_branch('master')]
+        assert mock_logger.mock_calls == [
+            call.exception("Unable to get branch %s for repo %s",
+                           'master', 'myuser/foo')
+        ]
