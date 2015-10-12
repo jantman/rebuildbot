@@ -192,10 +192,23 @@ class Travis(object):
         raise TravisTriggerError(repo_slug, branch, url, res.status_code,
                                  res.headers, res.text)
 
-    def url_for_build(self, repo_slug, build_num):
+    @staticmethod
+    def url_for_build(repo_slug, build_num):
         """
         Given a repository name and build number, return the HTML URL for the
         build.
         """
         s = 'https://travis-ci.org/%s/builds/%s' % (repo_slug, build_num)
         return s
+
+    def get_build(self, build_id):
+        """
+        Return the Build object for the specified build ID.
+
+        :param build_id: the build ID of the build to get
+        :type build_id: int
+        :rtype: :py:class:`travispy.entities.Build`
+        """
+        b = self.travis.build(build_id)
+        b.check_state()
+        return b

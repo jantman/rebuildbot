@@ -51,6 +51,7 @@ from .travis import Travis
 from .exceptions import GitTokenMissingError
 from .github_wrapper import GitHubWrapper
 from .buildinfo import BuildInfo
+from .local_build import LocalBuild
 
 logger = logging.getLogger(__name__)
 
@@ -111,17 +112,12 @@ class ReBuildBot(object):
         modules, which spin up VirtualBox machines, I only want one running
         at a time.
         """
-        # poll travis for results, update if we have any
-        # find a local build to run, and run it, then update results
-        """
-        - For local builds, we'll do these once Travis is started, but before
-        we poll travis. For each one, we'll do the git clone, get it on the
-        branch we want, and then start the local build. We'll capture output
-        and stderr and the exit code, and put that to an S3 bucket. Once that's
-        done, we'll update a result dict with the exit code (boolean, 0 or not)
-        and a link to the S3 bucket output.
-        """
-        pass
+        self.poll_travis_updates()
+        for name, bi in self.builds.items():
+            if bi.run_local and bi.local_build_finished is False:
+                b = LocalBuild(name, bi, dry_run=self.dry_run)
+                b.run()
+                return
 
     @property
     def have_work_to_do(self):
@@ -133,12 +129,7 @@ class ReBuildBot(object):
         :rtype: boolean
         """
         for name, bi in self.builds.items():
-            if (
-                    bi.travis_build_id is not None and
-                    bi.travis_build_result is None
-            ):
-                return True
-            if bi.run_local and bi.local_build_return_code is None:
+            if not bi.is_done:
                 return True
         return False
 
@@ -168,8 +159,11 @@ class ReBuildBot(object):
         if projects is None:
             logger.info("Finding candidate projects from Travis and GitHub")
             # GitHub
-            for repo, config in self.github.find_projects().items():
-                builds[repo] = BuildInfo(repo, config)
+            for repo, tup in self.github.find_projects().items():
+                config, https_clone_url, ssh_clone_url = tup
+                builds[repo] = BuildInfo(repo, local_script=config,
+                                         https_clone_url=https_clone_url,
+                                         ssh_clone_url=ssh_clone_url)
             # Travis
             for repo in self.travis.get_repos():
                 if repo not in builds:
@@ -178,8 +172,11 @@ class ReBuildBot(object):
             return builds
         logger.info("Using explicit projects list: %s", projects)
         for project in projects:
-            config = self.github.get_project_config(project)
-            tmp_build = BuildInfo(project, config)
+            tup = self.github.get_project_config(project)
+            config, https_clone_url, ssh_clone_url = tup
+            tmp_build = BuildInfo(project, local_script=config,
+                                  https_clone_url=https_clone_url,
+                                  ssh_clone_url=ssh_clone_url)
             try:
                 self.travis.get_last_build(project)
                 tmp_build.run_travis = True
@@ -233,7 +230,15 @@ class ReBuildBot(object):
         errored = 0
         logger.info("Triggering Travis builds")
         for repo_slug, build_info in sorted(self.builds.items()):
-            if build_info.run_travis is False:
+            if (
+                    not build_info.run_travis or
+                    build_info.travis_build_finished
+            ):
+                continue
+            if self.dry_run:
+                logger.info("DRY RUN: would trigger Travis build of %s",
+                            repo_slug)
+                build_info.set_dry_run()
                 continue
             try:
                 res = self.travis.run_build(repo_slug)
@@ -244,3 +249,28 @@ class ReBuildBot(object):
         logger.info("Finished triggering Travis builds; triggered %s "
                     "successfully, %s had errors being triggered", started,
                     errored)
+
+    def poll_travis_updates(self):
+        """
+        For all Travis builds that have not yet completed, poll TravisCI to
+        check if they've finished, and if so, update the BuildInfo object.
+        """
+        logger.debug("Polling for Travis updates")
+        for repo_slug, build_info in sorted(self.builds.items()):
+            if self.dry_run:
+                build_info.set_dry_run()
+                continue
+            if (
+                    not build_info.run_travis or
+                    build_info.travis_build_finished
+            ):
+                continue
+            t_build = self.travis.get_build(build_info.travis_build_id)
+            if t_build.finished:
+                logger.debug("Build %s of %s has finished; updating",
+                             build_info.travis_build_id, repo_slug)
+                build_info.set_travis_build_finished(t_build)
+            else:
+                logger.debug("Build %s of %s still running",
+                             build_info.travis_build_id, repo_slug)
+        logger.debug("Completed updating Travis build status")

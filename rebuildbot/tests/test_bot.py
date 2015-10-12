@@ -134,6 +134,7 @@ class TestReBuildBot(object):
             self.cls.travis = self.mock_travis
             self.cls.s3 = self.mock_s3
             self.cls.builds = {}
+            self.cls.dry_run = False
 
     def test_get_github_token_env(self):
         new_env = {
@@ -256,8 +257,8 @@ class TestReBuildBot(object):
 
     def test_find_projects_automatic(self):
         self.cls.github.find_projects.return_value = {
-            'a/p1': 'config_a_p1',
-            'a/p2': 'config_a_p2',
+            'a/p1': ('config_a_p1', 'clone_a_p1', 'ssh_a_p1'),
+            'a/p2': ('config_a_p2', 'clone_a_p2', 'ssh_a_p2'),
         }
         self.cls.travis.get_repos.return_value = [
             'a/p1',
@@ -271,14 +272,20 @@ class TestReBuildBot(object):
         assert res['a/p1'].local_script == 'config_a_p1'
         assert res['a/p1'].run_travis is True
         assert res['a/p1'].run_local is True
+        assert res['a/p1'].https_clone_url == 'clone_a_p1'
+        assert res['a/p1'].ssh_clone_url == 'ssh_a_p1'
         assert res['a/p2'].slug == 'a/p2'
         assert res['a/p2'].local_script == 'config_a_p2'
         assert res['a/p2'].run_travis is False
         assert res['a/p2'].run_local is True
+        assert res['a/p2'].https_clone_url == 'clone_a_p2'
+        assert res['a/p2'].ssh_clone_url == 'ssh_a_p2'
         assert res['a/p3'].slug == 'a/p3'
         assert res['a/p3'].local_script is None
         assert res['a/p3'].run_travis is True
         assert res['a/p3'].run_local is False
+        assert res['a/p3'].https_clone_url is None
+        assert res['a/p3'].ssh_clone_url is None
 
     def test_find_projects_list(self):
 
@@ -291,11 +298,14 @@ class TestReBuildBot(object):
                 'message': {'message': 'foo'}
             })
 
-        self.cls.github.get_project_config.side_effect = [
-            'config_a_p1',
-            'config_a_p2',
-            None
-        ]
+        def se_config(projname):
+            if projname == 'a/p1':
+                return ('config_a_p1', 'clone_a_p1', 'ssh_a_p1')
+            if projname == 'a/p2':
+                return ('config_a_p2', 'clone_a_p2', 'ssh_a_p2')
+            return (None, None, None)
+
+        self.cls.github.get_project_config.side_effect = se_config
         self.cls.travis.get_last_build.side_effect = se_last_build
 
         res = self.cls.find_projects(['a/p1', 'a/p2', 'a/p3'])
@@ -314,14 +324,20 @@ class TestReBuildBot(object):
         assert res['a/p1'].local_script == 'config_a_p1'
         assert res['a/p1'].run_travis is True
         assert res['a/p1'].run_local is True
+        assert res['a/p1'].https_clone_url == 'clone_a_p1'
+        assert res['a/p1'].ssh_clone_url == 'ssh_a_p1'
         assert res['a/p2'].slug == 'a/p2'
         assert res['a/p2'].local_script == 'config_a_p2'
         assert res['a/p2'].run_travis is False
         assert res['a/p2'].run_local is True
+        assert res['a/p2'].https_clone_url == 'clone_a_p2'
+        assert res['a/p2'].ssh_clone_url == 'ssh_a_p2'
         assert res['a/p3'].slug == 'a/p3'
         assert res['a/p3'].local_script is None
         assert res['a/p3'].run_travis is True
         assert res['a/p3'].run_local is False
+        assert res['a/p3'].https_clone_url is None
+        assert res['a/p3'].ssh_clone_url is None
 
     def test_connect_s3(self):
         mock_conn = Mock(spec_set=S3Connection)
@@ -399,12 +415,19 @@ class TestReBuildBot(object):
         bi_blam.run_travis = True
         bi_blarg = BuildInfo('foo/blarg', None)
         bi_blarg.run_travis = True
+        bi_foo = BuildInfo('foo/foo', None)
+        bi_foo.run_travis = False
+        bi_quux = BuildInfo('foo/quux', None)
+        bi_quux.run_travis = True
+        bi_quux.travis_build_finished = True
 
         self.cls.builds = {
             'foo/bar': bi_bar,
             'foo/baz': bi_baz,
             'foo/blam': bi_blam,
             'foo/blarg': bi_blarg,
+            'foo/foo': bi_foo,
+            'foo/quux': bi_quux,
         }
         self.cls.travis.run_build.side_effect = se_run_travis
         self.cls.start_travis_builds()
@@ -418,3 +441,189 @@ class TestReBuildBot(object):
         assert self.cls.builds['foo/blam'].travis_trigger_error == exc_blam
         assert self.cls.builds['foo/blarg'].travis_build_id is None
         assert self.cls.builds['foo/blarg'].travis_trigger_error == exc_blarg
+
+    def test_start_travis_builds_dry_run(self):
+        self.cls.dry_run = True
+
+        bi_bar = Mock(spec_set=BuildInfo)
+        type(bi_bar).run_travis = PropertyMock(return_value=True)
+        type(bi_bar).travis_build_finished = PropertyMock(return_value=False)
+        bi_baz = Mock(spec_set=BuildInfo)
+        type(bi_baz).run_travis = PropertyMock(return_value=False)
+        type(bi_baz).travis_build_finished = PropertyMock(return_value=False)
+
+        self.cls.builds = {
+            'foo/bar': bi_bar,
+            'foo/baz': bi_baz,
+        }
+        self.cls.start_travis_builds()
+        assert self.cls.travis.run_build.mock_calls == []
+        assert bi_bar.mock_calls == [call.set_dry_run()]
+        assert bi_baz.mock_calls == []
+
+    def test_have_work_true(self):
+        bi_1 = Mock(spec_set=BuildInfo)
+        type(bi_1).is_done = PropertyMock(return_value=True)
+        bi_2 = Mock(spec_set=BuildInfo)
+        type(bi_2).is_done = PropertyMock(return_value=False)
+
+        self.cls.builds = {'foo/1': bi_1, 'foo/2': bi_2}
+        assert self.cls.have_work_to_do is True
+
+    def test_have_work_false(self):
+        bi_1 = Mock(spec_set=BuildInfo)
+        type(bi_1).is_done = PropertyMock(return_value=True)
+        bi_2 = Mock(spec_set=BuildInfo)
+        type(bi_2).is_done = PropertyMock(return_value=True)
+
+        self.cls.builds = {'foo/1': bi_1, 'foo/2': bi_2}
+        assert self.cls.have_work_to_do is False
+
+    def test_runner_loop(self):
+        build1 = Mock(spec_set=BuildInfo)
+        type(build1).run_local = PropertyMock(return_value=False)
+        type(build1).local_build_finished = PropertyMock(return_value=False)
+        build2 = Mock(spec_set=BuildInfo)
+        type(build2).run_local = PropertyMock(return_value=True)
+        type(build2).local_build_finished = PropertyMock(return_value=True)
+        build3 = Mock(spec_set=BuildInfo)
+        type(build3).run_local = PropertyMock(return_value=True)
+        type(build3).local_build_finished = PropertyMock(return_value=False)
+        build4 = Mock(spec_set=BuildInfo)
+        type(build4).run_local = PropertyMock(return_value=True)
+        type(build4).local_build_finished = PropertyMock(return_value=False)
+
+        self.cls.builds = {
+            'me/foo': build1,
+            'me/bar': build2,
+            'me/baz': build3,
+            'me/blam': build4,
+        }
+        with nested(
+                patch('%s.poll_travis_updates' % pb),
+                patch('%s.LocalBuild' % pbm),
+        ) as (
+            mock_poll_travis,
+            mock_local_build,
+        ):
+            self.cls.runner_loop()
+        assert mock_poll_travis.mock_calls == [call()]
+        assert mock_local_build.mock_calls == [
+            call('me/baz', build3, dry_run=False),
+            call().run()
+        ]
+
+    def test_runner_loop_dry_run(self):
+        self.cls.dry_run = True
+
+        build1 = Mock(spec_set=BuildInfo)
+        type(build1).run_local = PropertyMock(return_value=True)
+        type(build1).local_build_finished = PropertyMock(return_value=False)
+
+        self.cls.builds = {
+            'me/foo': build1,
+        }
+        with nested(
+                patch('%s.poll_travis_updates' % pb),
+                patch('%s.LocalBuild' % pbm),
+        ) as (
+            mock_poll_travis,
+            mock_local_build,
+        ):
+            self.cls.runner_loop()
+        assert mock_poll_travis.mock_calls == [call()]
+        assert mock_local_build.mock_calls == [
+            call('me/foo', build1, dry_run=True),
+            call().run()
+        ]
+
+    def test_runner_loop_no_local(self):
+        build1 = Mock(spec_set=BuildInfo)
+        type(build1).run_local = PropertyMock(return_value=True)
+        type(build1).local_build_finished = PropertyMock(return_value=True)
+
+        self.cls.builds = {
+            'me/foo': build1,
+        }
+        with nested(
+                patch('%s.poll_travis_updates' % pb),
+                patch('%s.LocalBuild' % pbm),
+        ) as (
+            mock_poll_travis,
+            mock_local_build,
+        ):
+            self.cls.runner_loop()
+        assert mock_poll_travis.mock_calls == [call()]
+        assert mock_local_build.mock_calls == []
+
+    def test_poll_travis_updates(self):
+        build1 = Mock(spec_set=BuildInfo)
+        type(build1).run_travis = PropertyMock(return_value=False)
+        type(build1).travis_build_finished = False
+        type(build1).travis_build_id = -1
+
+        build2 = Mock(spec_set=BuildInfo)
+        type(build2).run_travis = PropertyMock(return_value=True)
+        type(build2).travis_build_finished = True
+        type(build2).travis_build_id = -1
+
+        build3 = Mock(spec_set=BuildInfo)
+        type(build3).run_travis = PropertyMock(return_value=True)
+        type(build3).travis_build_finished = False
+        type(build3).travis_build_id = 123
+
+        build4 = Mock(spec_set=BuildInfo)
+        type(build4).run_travis = PropertyMock(return_value=True)
+        type(build4).travis_build_finished = False
+        type(build4).travis_build_id = 456
+
+        mock_travis_build3 = Mock()
+        type(mock_travis_build3).finished = PropertyMock(return_value=True)
+        mock_travis_build4 = Mock()
+        type(mock_travis_build4).finished = PropertyMock(return_value=False)
+
+        def se_get_build(build_id):
+            if build_id == 123:
+                return mock_travis_build3
+            if build_id == 456:
+                return mock_travis_build4
+            return Mock()
+
+        self.cls.travis.get_build.side_effect = se_get_build
+
+        self.cls.builds = {
+            'a/1': build1,
+            'a/2': build2,
+            'a/3': build3,
+            'a/4': build4,
+        }
+
+        self.cls.poll_travis_updates()
+
+        assert self.cls.travis.mock_calls == [
+            call.get_build(123),
+            call.get_build(456),
+        ]
+        assert build1.mock_calls == []
+        assert build2.mock_calls == []
+        assert build3.mock_calls == [
+            call.set_travis_build_finished(mock_travis_build3)
+        ]
+        assert build4.mock_calls == []
+
+    def test_poll_travis_updates_dry_run(self):
+        self.cls.dry_run = True
+
+        build1 = Mock(spec_set=BuildInfo)
+        build2 = Mock(spec_set=BuildInfo)
+
+        self.cls.builds = {
+            'a/1': build1,
+            'a/2': build2,
+        }
+
+        self.cls.poll_travis_updates()
+
+        assert self.cls.travis.mock_calls == []
+        assert build1.mock_calls == [call.set_dry_run()]
+        assert build2.mock_calls == [call.set_dry_run()]

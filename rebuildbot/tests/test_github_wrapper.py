@@ -99,6 +99,8 @@ class TestGitHubWrapper(object):
         mock_repo1 = Mock(spec_set=Repository)
         type(mock_repo1).full_name = 'myuser/foo'
         mock_repo1.get_file_contents.return_value = mock_content1
+        type(mock_repo1).clone_url = 'cloneurl'
+        type(mock_repo1).ssh_url = 'sshurl'
 
         mock_repo2 = Mock(spec_set=Repository)
         type(mock_repo2).full_name = 'myuser/bar'
@@ -122,7 +124,9 @@ class TestGitHubWrapper(object):
             mock_last_day.side_effect = [False, True, False]
             res = self.cls.find_projects()
 
-        assert res == {'myuser/foo': 'my file content'}
+        assert res == {
+            'myuser/foo': ('my file content', 'cloneurl', 'sshurl')
+        }
         assert mock_logger.mock_calls == [
             call.debug("Skipping repository '%s' - commit on master in "
                        "last day", 'myuser/bar'),
@@ -137,10 +141,12 @@ class TestGitHubWrapper(object):
         mock_repo1 = Mock(spec_set=Repository)
         type(mock_repo1).full_name = 'myuser/foo'
         mock_repo1.get_file_contents.return_value = mock_content1
+        type(mock_repo1).clone_url = 'cloneurl'
+        type(mock_repo1).ssh_url = 'sshurl'
 
         self.cls.github.get_repo.return_value = mock_repo1
         res = self.cls.get_project_config('me/myrepo')
-        assert res == 'my file content'
+        assert res == ('my file content', 'cloneurl', 'sshurl')
         assert self.cls.github.mock_calls == [
             call.get_repo('me/myrepo'),
             call.get_repo().get_file_contents('.rebuildbot.sh', ref='master')
@@ -160,7 +166,7 @@ class TestGitHubWrapper(object):
 
         self.cls.github.get_repo.return_value = mock_repo1
         res = self.cls.get_project_config('me/myrepo')
-        assert res is None
+        assert res == (None, None, None)
         assert self.cls.github.mock_calls == [
             call.get_repo('me/myrepo'),
             call.get_repo().get_file_contents('.rebuildbot.sh', ref='master')

@@ -322,3 +322,13 @@ class TestTravis(object):
     def test_url_for_build(self):
         res = self.cls.url_for_build('a/b', 123)
         assert res == 'https://travis-ci.org/a/b/builds/123'
+
+    def test_get_build(self):
+        m = Mock()
+        self.mock_travis.build.return_value = m
+        res = self.cls.get_build(123)
+        assert res == m
+        assert self.mock_travis.mock_calls == [
+            call.build(123),
+            call.build().check_state()
+        ]

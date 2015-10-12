@@ -64,10 +64,12 @@ class GitHubWrapper(object):
         Iterate all GitHub repositories and find any with a .rebuildbot.sh;
         remove from this set any which have had a commit on master in the last
         24 hours. Return the result as a dict, where keys are the repository
-        full name / slug, and values are the contents of .rebuildbot.sh in the
-        repository.
+        full name / slug, and values are 3-tuples of the contents of
+        .rebuildbot.sh in the repository, the HTTPS clone URL and the SSH clone
+        URL.
 
-        :returns: dict of repository slug strings to .rebuildbot.sh content str
+        :returns: dict of repository slug strings to 3-tuples of (.rebuildbot.sh
+        content string, HTTPS clone URL string, SSH clone URL string)
         :rtype: dict
         """
         projects = {}
@@ -82,18 +84,23 @@ class GitHubWrapper(object):
                 logger.debug("Skipping repository '%s' - .rebuildbot.sh not "
                              "present", repo.full_name)
                 continue
-            projects[repo.full_name] = b64decode(config.content)
+            projects[repo.full_name] = (b64decode(config.content),
+                                        repo.clone_url, repo.ssh_url)
         return projects
 
     def get_project_config(self, repo_full_name, branch='master'):
         """
         Given the full name to a repository, return the content of
-        .rebuildbot.sh or None if not present.
+        .rebuildbot.sh or None if not present, the HTTPS clone URL, and the
+        SSH clone url as a 3-tuple of strings
 
         :param repo_full_name: the full name / slug for the repo
         :type repo_full_name: string
         :param branch_name: the branch name to check
         :type branch_name: string
+        :returns: 3-tuple of (.rebuildbot.sh content string, HTTPS clone URL
+        string, SSH clone URL string)
+        :rtype: tuple
         """
         repo = self.github.get_repo(repo_full_name)
         try:
@@ -101,8 +108,8 @@ class GitHubWrapper(object):
         except UnknownObjectException:
             logger.debug("Skipping repository '%s' - .rebuildbot.sh not "
                          "present", repo.full_name)
-            return None
-        return b64decode(config.content)
+            return (None, None, None)
+        return (b64decode(config.content), repo.clone_url, repo.ssh_url)
 
     def get_repos(self):
         """
