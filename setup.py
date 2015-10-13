@@ -49,6 +49,7 @@ requires = [
     'boto>=2.32.0',
     'python-dateutil>=2.4.2',
     'PyGithub>=1.25',
+    'GitPython>=1.0.1',
 ]
 
 classifiers = [
