@@ -37,6 +37,19 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 ################################################################################
 """
 
+import os
+import sys
+import datetime
+import logging
+import subprocess
+import locale
+from tempfile import mkdtemp
+from shutil import rmtree
+
+from git import Repo
+
+logger = logging.getLogger()
+
 
 class LocalBuild(object):
     """
@@ -63,16 +76,110 @@ class LocalBuild(object):
         `self.dry_run` is True, log everything that would be done and then
         update the object.
         """
-        pass
-        # NOTE: be sure to respect dry_run here; it should output everything
-        #  that would be done - what would be cloned where, and the script
-        #  and then update the build_info object appropriately to signal a
-        #  finished local build run.
+        try:
+            repo_path = self.clone_repo()
+        except Exception as ex:
+            logger.exception("Exception while cloning %s", self.repo_name)
+            self.build_info.set_local_build(excinfo=ex, return_code=-1)
+            return
+        try:
+            start = self.get_time()
+            output = self.run_build()
+            duration = self.get_time() - start
+            return_code = 0
+            logger.debug("Local build completed in %s", duration)
+        except subprocess.CalledProcessError as ex:
+            logger.exception("Exception while running local build of %s",
+                             self.repo_name)
+            self.build_info.set_local_build(
+                excinfo=ex,
+                output=ex.output,
+                return_code=ex.returncode
+            )
+            logger.debug("shutil.rmtree(%s)", repo_path)
+            rmtree(repo_path)
+            return
+        except Exception as ex:
+            logger.exception("Exception while running local build of %s",
+                             self.repo_name)
+            self.build_info.set_local_build(excinfo=ex)
+            logger.debug("shutil.rmtree(%s)", repo_path)
+            rmtree(repo_path)
+            return
+        self.build_info.set_local_build(return_code=return_code, output=output,
+                                        duration=duration)
+        logger.debug("shutil.rmtree(%s)", repo_path)
+        rmtree(repo_path)
+
+    def get_time(self):
         """
-        - For local builds, we'll do these once Travis is started, but before
-        we poll travis. For each one, we'll do the git clone, get it on the
-        branch we want, and then start the local build. We'll capture output
-        and stderr and the exit code, and put that to an S3 bucket. Once that's
-        done, we'll update a result dict with the exit code (boolean, 0 or not)
-        and a link to the S3 bucket output.
+        Helper to make testing easier - return datetime.datetime.now()
         """
+        return datetime.datetime.now()
+
+    def clone_repo(self, branch='master'):
+        """
+        Clone the repository.
+        """
+        path = self.path_for_repo()
+        logger.debug("Cloning %s branch %s into: %s", self.repo_name, branch,
+                     path)
+        if self.dry_run:
+            logger.info("DRY RUN - not actually cloning %s into %s",
+                        self.repo_name, path)
+            return path
+        for url in [
+                self.build_info.ssh_clone_url,
+                self.build_info.https_clone_url
+        ]:
+            try:
+                logger.debug("Cloning %s into %s", url, path)
+                Repo.clone_from(
+                    url,
+                    path,
+                    branch=branch
+                )
+                logger.debug("Cloned %s to %s", url, path)
+                return path
+            except Exception as ex:
+                continue
+        raise ex
+
+    def run_build(self, repo_path):
+        """
+        Helper method to actually run the build.
+
+        :param repo_path: the absolute path to the repository clone
+        :type repo_path: string
+        :raises: exception
+        :returns: string combined STDOUT/STDERR
+        :rtype: string
+        :raises: subprocess.CalledProcessError
+        """
+        if self.dry_run:
+            return "DRY RUN"
+        oldpwd = os.getcwd()
+        os.chdir(repo_path)
+        try:
+            res = subprocess.check_output(
+                ['./.rebuildbot.sh'],
+                stderr=subprocess.STDOUT
+            )
+            if sys.version_info >= (3, 0):
+                res = res.decode(locale.getdefaultlocale()[1])
+            os.chdir(oldpwd)
+        except Exception as ex:
+            os.chdir(oldpwd)
+            # any CalledProcessError is handled in self.run()
+            raise ex
+        return res
+
+    def path_for_repo(self):
+        """
+        Determine where to clone the repo to.
+
+        :returns: absolute path to clone the repo at
+        :rtype: string
+        """
+        path = mkdtemp(prefix='rebuildbot_')
+        return path
