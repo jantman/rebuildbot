@@ -68,6 +68,7 @@ class TestBuildInfoInit(object):
         assert cls.local_build_output is None
         assert cls.local_build_exception is None
         assert cls.local_build_finished is False
+        assert cls.local_build_duration is None
         assert cls.run_local is False
         assert cls.travis_build_result is None
         assert cls.travis_build_state is None
@@ -92,6 +93,7 @@ class TestBuildInfoInit(object):
         assert cls.local_build_output is None
         assert cls.local_build_exception is None
         assert cls.local_build_finished is False
+        assert cls.local_build_duration is None
         assert cls.run_local is True
         assert cls.travis_build_result is None
         assert cls.travis_build_state is None
@@ -116,6 +118,7 @@ class TestBuildInfoInit(object):
         assert cls.local_build_output is None
         assert cls.local_build_exception is None
         assert cls.local_build_finished is False
+        assert cls.local_build_duration is None
         assert cls.run_local is False
         assert cls.travis_build_result is None
         assert cls.travis_build_state is None
@@ -191,11 +194,12 @@ class TestBuildInfo(object):
         ]
 
     def test_set_local_build(self):
-        self.cls.set_local_build(return_code=2, output='myoutput')
+        self.cls.set_local_build(return_code=2, output='myoutput', duration=1)
         assert self.cls.local_build_return_code == 2
         assert self.cls.local_build_output == 'myoutput'
         assert self.cls.local_build_exception is None
         assert self.cls.local_build_finished is True
+        assert self.cls.local_build_duration == 1
 
     def test_set_local_build_exception(self):
         ex = Exception("foo")
@@ -219,6 +223,7 @@ class TestBuildInfo(object):
         assert self.cls.local_build_output is None
         assert self.cls.local_build_exception is None
         assert self.cls.local_build_finished is False
+        assert self.cls.local_build_duration is None
         assert self.cls.run_local is True
         assert self.cls.travis_build_result is None
         assert self.cls.travis_build_state == 'DRY RUN'
