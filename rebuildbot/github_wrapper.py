@@ -39,7 +39,6 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 
 import logging
 import datetime
-from base64 import b64decode
 
 from github import Github
 from github.GithubException import (UnknownObjectException, GithubException)
@@ -64,12 +63,11 @@ class GitHubWrapper(object):
         Iterate all GitHub repositories and find any with a .rebuildbot.sh;
         remove from this set any which have had a commit on master in the last
         24 hours. Return the result as a dict, where keys are the repository
-        full name / slug, and values are 3-tuples of the contents of
-        .rebuildbot.sh in the repository, the HTTPS clone URL and the SSH clone
-        URL.
+        full name / slug, and values are 2-tuples (HTTPS clone URL,
+        SSH clone URL)
 
-        :returns: dict of repository slug strings to 3-tuples of (.rebuildbot.sh
-        content string, HTTPS clone URL string, SSH clone URL string)
+        :returns: dict of repository slug strings to 2-tuples of (HTTPS clone
+        URL string, SSH clone URL string)
         :rtype: dict
         """
         projects = {}
@@ -79,37 +77,35 @@ class GitHubWrapper(object):
                              "last day", repo.full_name)
                 continue
             try:
-                config = repo.get_file_contents('.rebuildbot.sh')
+                repo.get_file_contents('.rebuildbot.sh')
             except UnknownObjectException:
                 logger.debug("Skipping repository '%s' - .rebuildbot.sh not "
                              "present", repo.full_name)
                 continue
-            projects[repo.full_name] = (b64decode(config.content),
-                                        repo.clone_url, repo.ssh_url)
+            projects[repo.full_name] = (repo.clone_url, repo.ssh_url)
         return projects
 
     def get_project_config(self, repo_full_name, branch='master'):
         """
-        Given the full name to a repository, return the content of
-        .rebuildbot.sh or None if not present, the HTTPS clone URL, and the
-        SSH clone url as a 3-tuple of strings
+        Given the full name to a repository, return the HTTPS clone URL, and the
+        SSH clone url as a 2-tuple of strings. If the project does not have a
+        .rebuildbot.sh present, return (None, None)
 
         :param repo_full_name: the full name / slug for the repo
         :type repo_full_name: string
         :param branch_name: the branch name to check
         :type branch_name: string
-        :returns: 3-tuple of (.rebuildbot.sh content string, HTTPS clone URL
-        string, SSH clone URL string)
+        :returns: 2-tuple of (HTTPS clone URL string, SSH clone URL string)
         :rtype: tuple
         """
         repo = self.github.get_repo(repo_full_name)
         try:
-            config = repo.get_file_contents('.rebuildbot.sh', ref=branch)
+            repo.get_file_contents('.rebuildbot.sh', ref=branch)
         except UnknownObjectException:
             logger.debug("Skipping repository '%s' - .rebuildbot.sh not "
                          "present", repo.full_name)
-            return (None, None, None)
-        return (b64decode(config.content), repo.clone_url, repo.ssh_url)
+            return (None, None)
+        return (repo.clone_url, repo.ssh_url)
 
     def get_repos(self):
         """

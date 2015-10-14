@@ -160,21 +160,24 @@ class ReBuildBot(object):
             logger.info("Finding candidate projects from Travis and GitHub")
             # GitHub
             for repo, tup in self.github.find_projects().items():
-                config, https_clone_url, ssh_clone_url = tup
-                builds[repo] = BuildInfo(repo, local_script=config,
+                https_clone_url, ssh_clone_url = tup
+                builds[repo] = BuildInfo(repo, run_local=True,
                                          https_clone_url=https_clone_url,
                                          ssh_clone_url=ssh_clone_url)
             # Travis
             for repo in self.travis.get_repos():
                 if repo not in builds:
-                    builds[repo] = BuildInfo(repo, None)
+                    builds[repo] = BuildInfo(repo)
                 builds[repo].run_travis = True
             return builds
         logger.info("Using explicit projects list: %s", projects)
         for project in projects:
             tup = self.github.get_project_config(project)
-            config, https_clone_url, ssh_clone_url = tup
-            tmp_build = BuildInfo(project, local_script=config,
+            https_clone_url, ssh_clone_url = tup
+            run_local = True
+            if https_clone_url is None and ssh_clone_url is None:
+                run_local = False
+            tmp_build = BuildInfo(project, run_local=run_local,
                                   https_clone_url=https_clone_url,
                                   ssh_clone_url=ssh_clone_url)
             try:

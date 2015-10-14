@@ -39,7 +39,6 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 
 import sys
 import datetime
-from base64 import b64encode
 
 from github import Github
 from github.AuthenticatedUser import AuthenticatedUser
@@ -49,7 +48,6 @@ from github.Commit import Commit
 from github.GitCommit import GitCommit
 from github.GitAuthor import GitAuthor
 from github.GithubException import UnknownObjectException
-from github.ContentFile import ContentFile
 from github.GithubException import GithubException
 
 from rebuildbot.github_wrapper import GitHubWrapper
@@ -93,12 +91,9 @@ class TestGitHubWrapper(object):
         def se_404(fname):
             raise UnknownObjectException(404, 'some data')
 
-        content1 = b64encode("my file content")
-        mock_content1 = Mock(spec_set=ContentFile)
-        type(mock_content1).content = content1
         mock_repo1 = Mock(spec_set=Repository)
         type(mock_repo1).full_name = 'myuser/foo'
-        mock_repo1.get_file_contents.return_value = mock_content1
+        mock_repo1.get_file_contents.return_value = True
         type(mock_repo1).clone_url = 'cloneurl'
         type(mock_repo1).ssh_url = 'sshurl'
 
@@ -119,7 +114,7 @@ class TestGitHubWrapper(object):
             res = self.cls.find_projects()
 
         assert res == {
-            'myuser/foo': ('my file content', 'cloneurl', 'sshurl')
+            'myuser/foo': ('cloneurl', 'sshurl')
         }
         assert mock_logger.mock_calls == [
             call.debug("Skipping repository '%s' - commit on master in "
@@ -129,18 +124,15 @@ class TestGitHubWrapper(object):
         ]
 
     def test_get_project_config(self):
-        content1 = b64encode("my file content")
-        mock_content1 = Mock(spec_set=ContentFile)
-        type(mock_content1).content = content1
         mock_repo1 = Mock(spec_set=Repository)
         type(mock_repo1).full_name = 'myuser/foo'
-        mock_repo1.get_file_contents.return_value = mock_content1
+        mock_repo1.get_file_contents.return_value = True
         type(mock_repo1).clone_url = 'cloneurl'
         type(mock_repo1).ssh_url = 'sshurl'
 
         self.cls.github.get_repo.return_value = mock_repo1
         res = self.cls.get_project_config('me/myrepo')
-        assert res == ('my file content', 'cloneurl', 'sshurl')
+        assert res == ('cloneurl', 'sshurl')
         assert self.cls.github.mock_calls == [
             call.get_repo('me/myrepo'),
             call.get_repo().get_file_contents('.rebuildbot.sh', ref='master')
@@ -160,7 +152,7 @@ class TestGitHubWrapper(object):
 
         self.cls.github.get_repo.return_value = mock_repo1
         res = self.cls.get_project_config('me/myrepo')
-        assert res == (None, None, None)
+        assert res == (None, None)
         assert self.cls.github.mock_calls == [
             call.get_repo('me/myrepo'),
             call.get_repo().get_file_contents('.rebuildbot.sh', ref='master')

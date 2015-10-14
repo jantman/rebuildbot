@@ -57,7 +57,6 @@ class TestBuildInfoInit(object):
     def test_slug(self):
         cls = BuildInfo('myslug')
         assert cls.slug == 'myslug'
-        assert cls.local_script is None
         assert cls.https_clone_url is None
         assert cls.ssh_clone_url is None
         assert cls.run_travis is False
@@ -80,9 +79,8 @@ class TestBuildInfoInit(object):
         assert cls.travis_build_finished is False
 
     def test_local_script(self):
-        cls = BuildInfo('myslug', local_script='myscript')
+        cls = BuildInfo('myslug', run_local=True)
         assert cls.slug == 'myslug'
-        assert cls.local_script == 'myscript'
         assert cls.https_clone_url is None
         assert cls.ssh_clone_url is None
         assert cls.run_travis is False
@@ -107,7 +105,6 @@ class TestBuildInfoInit(object):
     def test_other_args(self):
         cls = BuildInfo('myslug', https_clone_url='https', ssh_clone_url='ssh')
         assert cls.slug == 'myslug'
-        assert cls.local_script is None
         assert cls.https_clone_url == 'https'
         assert cls.ssh_clone_url == 'ssh'
         assert cls.run_travis is False
@@ -133,7 +130,7 @@ class TestBuildInfoInit(object):
 class TestBuildInfo(object):
 
     def setup(self):
-        self.cls = BuildInfo('me/myrepo', local_script='myscript',
+        self.cls = BuildInfo('me/myrepo', run_local=True,
                              https_clone_url='https_url',
                              ssh_clone_url='ssh_url')
 
@@ -212,7 +209,6 @@ class TestBuildInfo(object):
     def test_set_dry_run(self):
         self.cls.set_dry_run()
         assert self.cls.slug == 'me/myrepo'
-        assert self.cls.local_script == 'myscript'
         assert self.cls.https_clone_url == 'https_url'
         assert self.cls.ssh_clone_url == 'ssh_url'
         assert self.cls.run_travis is False

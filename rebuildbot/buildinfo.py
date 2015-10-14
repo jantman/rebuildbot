@@ -46,26 +46,25 @@ class BuildInfo(object):
     rebuilds of a specific GitHub repository.
     """
 
-    def __init__(self, repo_slug, local_script=None, https_clone_url=None,
+    def __init__(self, repo_slug, run_local=False, https_clone_url=None,
                  ssh_clone_url=None):
         """
         Initialize a BuildInfo data container.
 
         :param repo_slug: the repository slug / full name
         :type repo_slug: string
-        :param local_script: the contents of .rebuildbot.sh for the repo
-        :type local_script: string
+        :param run_local: whether or not to run local build
+        :type local_script: boolean
         :param https_clone_url: the HTTPS git clone URL for the repo
         :type https_clone_url: string
         :param ssh_clone_url: the SSH git clone URL for the repo
         :type ssh_clone_url: string
         """
         self.slug = repo_slug  # repo full name / slug
-        self.local_script = local_script  # .rebuildbot.sh local build script
         self.https_clone_url = https_clone_url
         self.ssh_clone_url = ssh_clone_url
         self.run_travis = False  # whether or not to run Travis build
-        self.run_local = True  # whether or not to run local build
+        self.run_local = run_local  # whether or not to run local build
         self.travis_trigger_error = None  # Exception when triggering travis
         self.travis_build_id = None  # Travis Build ID of the new build
         self.travis_build_result = None  # travispy.entities.build.Build
@@ -87,9 +86,6 @@ class BuildInfo(object):
         self.travis_build_number = None
         self.travis_build_url = None
         self.travis_build_finished = False
-
-        if local_script is None:
-            self.run_local = False
 
     @property
     def is_done(self):

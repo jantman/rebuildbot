@@ -244,8 +244,8 @@ class TestReBuildBot(object):
 
     def test_find_projects_automatic(self):
         self.cls.github.find_projects.return_value = {
-            'a/p1': ('config_a_p1', 'clone_a_p1', 'ssh_a_p1'),
-            'a/p2': ('config_a_p2', 'clone_a_p2', 'ssh_a_p2'),
+            'a/p1': ('clone_a_p1', 'ssh_a_p1'),
+            'a/p2': ('clone_a_p2', 'ssh_a_p2'),
         }
         self.cls.travis.get_repos.return_value = [
             'a/p1',
@@ -256,19 +256,16 @@ class TestReBuildBot(object):
         assert self.cls.travis.mock_calls == [call.get_repos()]
         assert len(res) == 3
         assert res['a/p1'].slug == 'a/p1'
-        assert res['a/p1'].local_script == 'config_a_p1'
         assert res['a/p1'].run_travis is True
         assert res['a/p1'].run_local is True
         assert res['a/p1'].https_clone_url == 'clone_a_p1'
         assert res['a/p1'].ssh_clone_url == 'ssh_a_p1'
         assert res['a/p2'].slug == 'a/p2'
-        assert res['a/p2'].local_script == 'config_a_p2'
         assert res['a/p2'].run_travis is False
         assert res['a/p2'].run_local is True
         assert res['a/p2'].https_clone_url == 'clone_a_p2'
         assert res['a/p2'].ssh_clone_url == 'ssh_a_p2'
         assert res['a/p3'].slug == 'a/p3'
-        assert res['a/p3'].local_script is None
         assert res['a/p3'].run_travis is True
         assert res['a/p3'].run_local is False
         assert res['a/p3'].https_clone_url is None
@@ -287,10 +284,10 @@ class TestReBuildBot(object):
 
         def se_config(projname):
             if projname == 'a/p1':
-                return ('config_a_p1', 'clone_a_p1', 'ssh_a_p1')
+                return ('clone_a_p1', 'ssh_a_p1')
             if projname == 'a/p2':
-                return ('config_a_p2', 'clone_a_p2', 'ssh_a_p2')
-            return (None, None, None)
+                return ('clone_a_p2', 'ssh_a_p2')
+            return (None, None)
 
         self.cls.github.get_project_config.side_effect = se_config
         self.cls.travis.get_last_build.side_effect = se_last_build
@@ -308,19 +305,16 @@ class TestReBuildBot(object):
         ]
         assert len(res) == 3
         assert res['a/p1'].slug == 'a/p1'
-        assert res['a/p1'].local_script == 'config_a_p1'
         assert res['a/p1'].run_travis is True
         assert res['a/p1'].run_local is True
         assert res['a/p1'].https_clone_url == 'clone_a_p1'
         assert res['a/p1'].ssh_clone_url == 'ssh_a_p1'
         assert res['a/p2'].slug == 'a/p2'
-        assert res['a/p2'].local_script == 'config_a_p2'
         assert res['a/p2'].run_travis is False
         assert res['a/p2'].run_local is True
         assert res['a/p2'].https_clone_url == 'clone_a_p2'
         assert res['a/p2'].ssh_clone_url == 'ssh_a_p2'
         assert res['a/p3'].slug == 'a/p3'
-        assert res['a/p3'].local_script is None
         assert res['a/p3'].run_travis is True
         assert res['a/p3'].run_local is False
         assert res['a/p3'].https_clone_url is None
