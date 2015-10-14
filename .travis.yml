@@ -19,10 +19,6 @@ matrix:
       env: TOXENV=pypy PIP_DOWNLOAD_CACHE=$HOME/.pip-cache
     - python: "pypy3"
       env: TOXENV=pypy3 PIP_DOWNLOAD_CACHE=$HOME/.pip-cache
-    - python: "2.7"
-      env: TOXENV=cov PIP_DOWNLOAD_CACHE=$HOME/.pip-cache
-    - python: "3.3"
-      env: TOXENV=cov PIP_DOWNLOAD_CACHE=$HOME/.pip-cache
   allow_failures:
     - python: "3.5-dev"
       env: TOXENV=py35 PIP_DOWNLOAD_CACHE=$HOME/.pip-cache
