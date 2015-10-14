@@ -5,6 +5,15 @@ ReBuildBot re-runs builds of your inactive projects.
 
 Dependencies change. Libraries break. Your dependencies might have unpinned dependencies of their own, which can cause breakage or conflicts during installation. For personal projects with slow development cycles, it might be weeks or months before a broken build or bug report uncovers the problems. ReBuildBot is a Python script that runs via cron, triggers rebuilds of your projects on TravisCI, and optionally executes some commands in a fresh git clone of master (i.e. integration or acceptance tests). You'll receive an email with the details of the runs and links to local command output uploaded to S3.
 
+Requirements
+============
+
+* Python 2.7, or Python >= 3.3. Sorry if this is too limited, but:
+  * Python 2.6 is archaic at this point, and just too difficult to maintain compatibility with in one codebase
+  * The `boto <https://github.com/boto/boto>`_ library we use to interface with S3 lacks support for Python3 < 3.3, and it doesn't appear that will change.
+* Some code on GitHub, being tested by Travis.
+* An AWS account, and an existing S3 bucket to put build reports in.
+
 Credentials
 ===========
 
@@ -32,7 +41,7 @@ will work; rebuildbot never touches AWS credentials and knows nothing about them
 Getting Started
 ===============
 
-1. Install rebuildbot.
+1. Install rebuildbot in a virtualenv.
 2. You'll probably want to do a ``rebuildbot -v --dry-run`` to make sure it can authenticate and that it finds all of your projects.
 3. Do an initial run, to make sure everything works. You may want to manually select just a few projects, as your tests might take a while to run.
 4. When you're satisfied that it appears to be working, set it up to run via cron. Please do not run more than once a day.
