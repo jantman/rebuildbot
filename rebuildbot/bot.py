@@ -121,7 +121,7 @@ class ReBuildBot(object):
         at a time.
         """
         self.poll_travis_updates()
-        for name, bi in self.builds.items():
+        for name, bi in sorted(self.builds.items()):
             if bi.run_local and bi.local_build_finished is False:
                 b = LocalBuild(name, bi, dry_run=self.dry_run)
                 b.run()
