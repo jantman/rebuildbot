@@ -75,6 +75,7 @@ class BuildInfo(object):
         self.local_build_output = None  # string local build output
         self.local_build_exception = None  # exception when running local build
         self.local_build_finished = False
+        self.local_build_duration = None
 
         # set by self.set_travis_build_finished()
         # these mirror the fields of :py:class:`travispy.entities.build.Build`
@@ -142,7 +143,8 @@ class BuildInfo(object):
         self.travis_build_url = Travis.url_for_build(self.slug, build.id)
         self.travis_build_finished = True
 
-    def set_local_build(self, return_code=None, output=None, excinfo=None):
+    def set_local_build(self, return_code=None, output=None, excinfo=None,
+                        duration=None):
         """
         When a local build is finished, update with its return code and
         output string.
@@ -151,11 +153,16 @@ class BuildInfo(object):
         :type return_code: int
         :param output: the string output of the build script
         :type output: string
+        :param excinfo: Exception encountered during build, if any
+        :type excinfo: Exception
+        :param duration: duration of the build (excluding git clone)
+        :type duration: datetime.datetime.timedelta
         """
         self.local_build_return_code = return_code
         self.local_build_output = output
         self.local_build_exception = excinfo
         self.local_build_finished = True
+        self.local_build_duration = duration
 
     def set_dry_run(self):
         """
@@ -174,3 +181,6 @@ class BuildInfo(object):
         self.travis_build_errored = False
         self.travis_build_number = -1
         self.travis_build_url = '#'
+
+    def make_html_info(self):
+        pass
