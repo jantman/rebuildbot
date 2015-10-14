@@ -374,12 +374,15 @@ class TestLocalBuild(object):
                             sys.version_info[2]
                         ))
     def test_run_build_success_py3(self):
+        mock_res = Mock()
         with patch('%s.os.getcwd' % pbm) as mock_getcwd, \
                 patch('%s.os.chdir' % pbm) as mock_chdir, \
                 patch('%s.subprocess' % pbm, autospec=True) as mock_subprocess,\
                 patch('%s.locale' % pbm, autospec=True) as mock_locale:
             mock_getcwd.return_value = '/my/pwd'
-            mock_locale.getDefaultLocale.return_value = ['foo', 'bar']
+            mock_locale.getdefaultlocale.return_value = ['foo', 'bar']
+            mock_locale.return_value = ['foo', 'bar']
+            mock_subprocess.check_output.return_value = mock_res
             res = self.cls.run_build('/repo/path')
         assert mock_getcwd.mock_calls == [call()]
         assert mock_chdir.mock_calls == [
@@ -390,10 +393,11 @@ class TestLocalBuild(object):
             call.check_output(
                 ['./.rebuildbot.sh'],
                 stderr=mock_subprocess.STDOUT
-            )
+            ),
+            call.check_output().decode('bar')
         ]
-        assert res == mock_subprocess.check_output.return_value
-        assert mock_subprocess.check_output.return_value.mock_calls == [
+        assert res == mock_res.decode.return_value
+        assert mock_res.mock_calls == [
             call.decode('bar')
         ]
 
@@ -412,9 +416,9 @@ class TestLocalBuild(object):
         with patch('%s.os.getcwd' % pbm) as mock_getcwd, \
                 patch('%s.os.chdir' % pbm) as mock_chdir, \
                 patch('%s.subprocess' % pbm, autospec=True) as mock_subprocess,\
-                patch('%s.locale' % pbm, autospec=True) as mock_locale:
+                patch('%s.locale' % pbm) as mock_locale:
             mock_getcwd.return_value = '/my/pwd'
-            mock_locale.getDefaultLocale.return_value = ['foo', 'bar']
+            mock_locale.getdefaultlocale.return_value = ['foo', 'bar']
             mock_subprocess.check_output.side_effect = se_exc
             with pytest.raises(Exception) as excinfo:
                 self.cls.run_build('/repo/path')
@@ -443,9 +447,9 @@ class TestLocalBuild(object):
         with patch('%s.os.getcwd' % pbm) as mock_getcwd, \
                 patch('%s.os.chdir' % pbm) as mock_chdir, \
                 patch('%s.subprocess' % pbm, autospec=True) as mock_subprocess,\
-                patch('%s.locale' % pbm, autospec=True) as mock_locale:
+                patch('%s.locale' % pbm) as mock_locale:
             mock_getcwd.return_value = '/my/pwd'
-            mock_locale.getDefaultLocale.return_value = ['foo', 'bar']
+            mock_locale.getdefaultlocale.return_value = ['foo', 'bar']
             res = self.cls.run_build('/repo/path')
         assert mock_getcwd.mock_calls == []
         assert mock_chdir.mock_calls == []
