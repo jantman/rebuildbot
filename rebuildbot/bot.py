@@ -37,10 +37,8 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 ################################################################################
 """
 
+import sys
 import os
-# import time
-from ConfigParser import (SafeConfigParser, NoSectionError, NoOptionError)
-from StringIO import StringIO
 import logging
 
 import boto
@@ -52,6 +50,16 @@ from .exceptions import GitTokenMissingError
 from .github_wrapper import GitHubWrapper
 from .buildinfo import BuildInfo
 from .local_build import LocalBuild
+
+# python3 ConfigParser
+if sys.version_info[0] < 3:
+    from ConfigParser import SafeConfigParser
+    from ConfigParser import (NoSectionError, NoOptionError)
+    from StringIO import StringIO
+else:
+    from configparser import ConfigParser as SafeConfigParser
+    from configparser import (NoSectionError, NoOptionError)
+    from io import StringIO
 
 logger = logging.getLogger(__name__)
 
