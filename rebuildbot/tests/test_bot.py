@@ -40,7 +40,6 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 import sys
 import pytest
 from textwrap import dedent
-from contextlib import nested
 
 from boto.s3.connection import S3Connection
 
@@ -70,17 +69,11 @@ pb = 'rebuildbot.bot.ReBuildBot'  # patch base for class
 class TestReBuildBotInit(object):
 
     def test_init(self):
-        with nested(
-                patch('%s.get_github_token' % pb),
-                patch('%s.GitHubWrapper' % pbm),
-                patch('%s.Travis' % pbm),
-                patch('%s.connect_s3' % pb),
-        ) as (
-            mock_get_gh_token,
-            mock_gh,
-            mock_travis,
-            mock_connect_s3,
-        ):
+        with \
+             patch('%s.get_github_token' % pb) as mock_get_gh_token, \
+             patch('%s.GitHubWrapper' % pbm) as mock_gh, \
+             patch('%s.Travis' % pbm) as mock_travis, \
+             patch('%s.connect_s3' % pb) as mock_connect_s3:
             mock_get_gh_token.return_value = 'myGHtoken'
             cls = ReBuildBot()
         assert mock_get_gh_token.mock_calls == [call()]
@@ -95,17 +88,11 @@ class TestReBuildBotInit(object):
         assert cls.builds == {}
 
     def test_init_dry_run(self):
-        with nested(
-                patch('%s.get_github_token' % pb),
-                patch('%s.GitHubWrapper' % pbm),
-                patch('%s.Travis' % pbm),
-                patch('%s.connect_s3' % pb),
-        ) as (
-            mock_get_gh_token,
-            mock_gh,
-            mock_travis,
-            mock_connect_s3,
-        ):
+        with \
+             patch('%s.get_github_token' % pb) as mock_get_gh_token, \
+             patch('%s.GitHubWrapper' % pbm) as mock_gh, \
+             patch('%s.Travis' % pbm) as mock_travis, \
+             patch('%s.connect_s3' % pb) as mock_connect_s3:
             mock_get_gh_token.return_value = 'myGHtoken'
             cls = ReBuildBot(dry_run=True)
         assert mock_get_gh_token.mock_calls == [call()]
@@ -348,19 +335,13 @@ class TestReBuildBot(object):
         assert mock_s3.mock_calls == [call()]
 
     def test_run(self):
-        with nested(
-                patch('%s.find_projects' % pb),
-                patch('%s.start_travis_builds' % pb),
-                patch('%s.have_work_to_do' % pb, new_callable=PropertyMock),
-                patch('%s.runner_loop' % pb),
-                patch('%s.handle_results' % pb),
-        ) as (
-            mock_find,
-            mock_start_travis,
-            mock_have_work,
-            mock_runner_loop,
-            mock_handle_results,
-        ):
+        with \
+             patch('%s.find_projects' % pb) as mock_find, \
+             patch('%s.start_travis_builds' % pb) as mock_start_travis, \
+             patch('%s.have_work_to_do' % pb, new_callable=PropertyMock) \
+             as mock_have_work, \
+             patch('%s.runner_loop' % pb) as mock_runner_loop, \
+             patch('%s.handle_results' % pb) as mock_handle_results:
             mock_have_work.side_effect = [True, True, False]
             self.cls.run()
         assert mock_find.mock_calls == [call(None)]
@@ -371,19 +352,13 @@ class TestReBuildBot(object):
         assert mock_handle_results.mock_calls == [call()]
 
     def test_run_with_projects(self):
-        with nested(
-                patch('%s.find_projects' % pb),
-                patch('%s.start_travis_builds' % pb),
-                patch('%s.have_work_to_do' % pb, new_callable=PropertyMock),
-                patch('%s.runner_loop' % pb),
-                patch('%s.handle_results' % pb),
-        ) as (
-            mock_find,
-            mock_start_travis,
-            mock_have_work,
-            mock_runner_loop,
-            mock_handle_results,
-        ):
+        with \
+             patch('%s.find_projects' % pb) as mock_find, \
+             patch('%s.start_travis_builds' % pb) as mock_start_travis, \
+             patch('%s.have_work_to_do' % pb, new_callable=PropertyMock) \
+             as mock_have_work, \
+             patch('%s.runner_loop' % pb) as mock_runner_loop, \
+             patch('%s.handle_results' % pb) as mock_handle_results:
             mock_have_work.return_value = False
             self.cls.run(['foo/bar', 'baz/blam'])
         assert mock_find.mock_calls == [call(['foo/bar', 'baz/blam'])]
@@ -499,13 +474,8 @@ class TestReBuildBot(object):
             'me/baz': build3,
             'me/blam': build4,
         }
-        with nested(
-                patch('%s.poll_travis_updates' % pb),
-                patch('%s.LocalBuild' % pbm),
-        ) as (
-            mock_poll_travis,
-            mock_local_build,
-        ):
+        with patch('%s.poll_travis_updates' % pb) as mock_poll_travis, \
+                patch('%s.LocalBuild' % pbm) as mock_local_build:
             self.cls.runner_loop()
         assert mock_poll_travis.mock_calls == [call()]
         assert mock_local_build.mock_calls == [
@@ -523,13 +493,8 @@ class TestReBuildBot(object):
         self.cls.builds = {
             'me/foo': build1,
         }
-        with nested(
-                patch('%s.poll_travis_updates' % pb),
-                patch('%s.LocalBuild' % pbm),
-        ) as (
-            mock_poll_travis,
-            mock_local_build,
-        ):
+        with patch('%s.poll_travis_updates' % pb) as mock_poll_travis, \
+                patch('%s.LocalBuild' % pbm) as mock_local_build:
             self.cls.runner_loop()
         assert mock_poll_travis.mock_calls == [call()]
         assert mock_local_build.mock_calls == [
@@ -545,13 +510,8 @@ class TestReBuildBot(object):
         self.cls.builds = {
             'me/foo': build1,
         }
-        with nested(
-                patch('%s.poll_travis_updates' % pb),
-                patch('%s.LocalBuild' % pbm),
-        ) as (
-            mock_poll_travis,
-            mock_local_build,
-        ):
+        with patch('%s.poll_travis_updates' % pb) as mock_poll_travis, \
+                patch('%s.LocalBuild' % pbm) as mock_local_build:
             self.cls.runner_loop()
         assert mock_poll_travis.mock_calls == [call()]
         assert mock_local_build.mock_calls == []

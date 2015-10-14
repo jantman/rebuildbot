@@ -40,7 +40,6 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 import sys
 import subprocess
 import pytest
-from contextlib import nested
 from rebuildbot.local_build import LocalBuild
 from rebuildbot.buildinfo import BuildInfo
 from datetime import (timedelta, datetime)
@@ -86,19 +85,10 @@ class TestLocalBuild(object):
         self.cls = LocalBuild('my/repo', self.bi)
 
     def test_run_ok(self):
-        with nested(
-                patch('%s.clone_repo' % pb),
-                patch('%s.run_build' % pb),
-                patch('%s.rmtree' % pbm),
-                patch('%s.logger' % pbm),
-                patch('%s.get_time' % pb),
-        ) as (
-            mock_clone,
-            mock_run,
-            mock_rmtree,
-            mock_logger,
-            mock_time,
-        ):
+        with patch('%s.clone_repo' % pb) as mock_clone, \
+                patch('%s.run_build' % pb) as mock_run, \
+                patch('%s.rmtree' % pbm) as mock_rmtree, \
+                patch('%s.get_time' % pb) as mock_time:
             mock_clone.return_value = '/my/clone/path'
             mock_run.return_value = 'my output'
             mock_time.side_effect = [
@@ -120,19 +110,10 @@ class TestLocalBuild(object):
         def clone_se():
             raise ex
 
-        with nested(
-                patch('%s.clone_repo' % pb),
-                patch('%s.run_build' % pb),
-                patch('%s.rmtree' % pbm),
-                patch('%s.logger' % pbm),
-                patch('%s.get_time' % pb),
-        ) as (
-            mock_clone,
-            mock_run,
-            mock_rmtree,
-            mock_logger,
-            mock_time,
-        ):
+        with patch('%s.clone_repo' % pb) as mock_clone, \
+                patch('%s.run_build' % pb) as mock_run, \
+                patch('%s.rmtree' % pbm) as mock_rmtree, \
+                patch('%s.get_time' % pb) as mock_time:
             mock_clone.side_effect = clone_se
             mock_run.return_value = 'my output'
             mock_time.side_effect = [
@@ -153,19 +134,10 @@ class TestLocalBuild(object):
         def se_ex():
             raise ex
 
-        with nested(
-                patch('%s.clone_repo' % pb),
-                patch('%s.run_build' % pb),
-                patch('%s.rmtree' % pbm),
-                patch('%s.logger' % pbm),
-                patch('%s.get_time' % pb),
-        ) as (
-            mock_clone,
-            mock_run,
-            mock_rmtree,
-            mock_logger,
-            mock_time,
-        ):
+        with patch('%s.clone_repo' % pb) as mock_clone, \
+                patch('%s.run_build' % pb) as mock_run, \
+                patch('%s.rmtree' % pbm) as mock_rmtree, \
+                patch('%s.get_time' % pb) as mock_time:
             mock_clone.return_value = '/my/clone/path'
             mock_run.side_effect = se_ex
             mock_time.side_effect = [
@@ -186,19 +158,10 @@ class TestLocalBuild(object):
         def se_ex():
             raise ex
 
-        with nested(
-                patch('%s.clone_repo' % pb),
-                patch('%s.run_build' % pb),
-                patch('%s.rmtree' % pbm),
-                patch('%s.logger' % pbm),
-                patch('%s.get_time' % pb),
-        ) as (
-            mock_clone,
-            mock_run,
-            mock_rmtree,
-            mock_logger,
-            mock_time,
-        ):
+        with patch('%s.clone_repo' % pb) as mock_clone, \
+                patch('%s.run_build' % pb) as mock_run, \
+                patch('%s.rmtree' % pbm) as mock_rmtree, \
+                patch('%s.get_time' % pb) as mock_time:
             mock_clone.return_value = '/my/clone/path'
             mock_run.side_effect = se_ex
             mock_time.side_effect = [
@@ -225,13 +188,8 @@ class TestLocalBuild(object):
         def se_clone(url, path, branch=None):
             return True
 
-        with nested(
-                patch('%s.path_for_repo' % pb),
-                patch('%s.Repo' % pbm),
-        ) as (
-            mock_path,
-            mock_repo,
-        ):
+        with patch('%s.path_for_repo' % pb) as mock_path, \
+                patch('%s.Repo' % pbm) as mock_repo:
             mock_path.return_value = '/repo/path'
             mock_repo.clone_from.side_effect = se_clone
             res = self.cls.clone_repo()
@@ -251,13 +209,8 @@ class TestLocalBuild(object):
                 raise ex
             return True
 
-        with nested(
-                patch('%s.path_for_repo' % pb),
-                patch('%s.Repo' % pbm),
-        ) as (
-            mock_path,
-            mock_repo,
-        ):
+        with patch('%s.path_for_repo' % pb) as mock_path, \
+                patch('%s.Repo' % pbm) as mock_repo:
             mock_path.return_value = '/repo/path'
             mock_repo.clone_from.side_effect = se_clone
             res = self.cls.clone_repo(branch='mybranch')
@@ -279,13 +232,8 @@ class TestLocalBuild(object):
                 raise ex1
             raise ex2
 
-        with nested(
-                patch('%s.path_for_repo' % pb),
-                patch('%s.Repo' % pbm),
-        ) as (
-            mock_path,
-            mock_repo,
-        ):
+        with patch('%s.path_for_repo' % pb) as mock_path, \
+                patch('%s.Repo' % pbm) as mock_repo:
             mock_path.return_value = '/repo/path'
             mock_repo.clone_from.side_effect = se_clone
             with pytest.raises(Exception) as excinfo:
@@ -308,15 +256,9 @@ class TestLocalBuild(object):
                 raise ex
             return True
 
-        with nested(
-                patch('%s.path_for_repo' % pb),
-                patch('%s.Repo' % pbm),
-                patch('%s.logger' % pbm),
-        ) as (
-            mock_path,
-            mock_repo,
-            mock_logger,
-        ):
+        with patch('%s.path_for_repo' % pb) as mock_path, \
+                patch('%s.Repo' % pbm) as mock_repo, \
+                patch('%s.logger' % pbm) as mock_logger:
             mock_path.return_value = '/repo/path'
             mock_repo.clone_from.side_effect = se_clone
             res = self.cls.clone_repo()
@@ -348,17 +290,9 @@ class TestLocalBuild(object):
                 sys.version_info[2]
         ))
     def test_run_build_success_py27(self):
-        with nested(
-                patch('%s.os.getcwd' % pbm),
-                patch('%s.os.chdir' % pbm),
-                patch('%s.subprocess' % pbm, autospec=True),
-                patch('%s.locale' % pbm, autospec=True),
-        ) as (
-            mock_getcwd,
-            mock_chdir,
-            mock_subprocess,
-            mock_locale,
-        ):
+        with patch('%s.os.getcwd' % pbm) as mock_getcwd, \
+                patch('%s.os.chdir' % pbm) as mock_chdir, \
+                patch('%s.subprocess' % pbm, autospec=True) as mock_subprocess:
             mock_getcwd.return_value = '/my/pwd'
             res = self.cls.run_build('/repo/path')
         assert mock_getcwd.mock_calls == [call()]
@@ -390,17 +324,9 @@ class TestLocalBuild(object):
         def se_exc(foo, stderr=None):
             raise ex
 
-        with nested(
-                patch('%s.os.getcwd' % pbm),
-                patch('%s.os.chdir' % pbm),
-                patch('%s.subprocess' % pbm, autospec=True),
-                patch('%s.locale' % pbm, autospec=True),
-        ) as (
-            mock_getcwd,
-            mock_chdir,
-            mock_subprocess,
-            mock_locale,
-        ):
+        with patch('%s.os.getcwd' % pbm) as mock_getcwd, \
+                patch('%s.os.chdir' % pbm) as mock_chdir, \
+                patch('%s.subprocess' % pbm, autospec=True) as mock_subprocess:
             mock_getcwd.return_value = '/my/pwd'
             mock_subprocess.check_output.side_effect = se_exc
             with pytest.raises(Exception) as excinfo:
@@ -431,17 +357,9 @@ class TestLocalBuild(object):
     def test_run_build_dry_run_py27(self):
         self.cls.dry_run = True
 
-        with nested(
-                patch('%s.os.getcwd' % pbm),
-                patch('%s.os.chdir' % pbm),
-                patch('%s.subprocess' % pbm, autospec=True),
-                patch('%s.locale' % pbm, autospec=True),
-        ) as (
-            mock_getcwd,
-            mock_chdir,
-            mock_subprocess,
-            mock_locale,
-        ):
+        with patch('%s.os.getcwd' % pbm) as mock_getcwd, \
+                patch('%s.os.chdir' % pbm) as mock_chdir, \
+                patch('%s.subprocess' % pbm, autospec=True) as mock_subprocess:
             mock_getcwd.return_value = '/my/pwd'
             res = self.cls.run_build('/repo/path')
         assert mock_getcwd.mock_calls == []
@@ -456,17 +374,10 @@ class TestLocalBuild(object):
                             sys.version_info[2]
                         ))
     def test_run_build_success_py3(self):
-        with nested(
-                patch('%s.os.getcwd' % pbm),
-                patch('%s.os.chdir' % pbm),
-                patch('%s.subprocess' % pbm, autospec=True),
-                patch('%s.locale' % pbm, autospec=True),
-        ) as (
-            mock_getcwd,
-            mock_chdir,
-            mock_subprocess,
-            mock_locale,
-        ):
+        with patch('%s.os.getcwd' % pbm) as mock_getcwd, \
+                patch('%s.os.chdir' % pbm) as mock_chdir, \
+                patch('%s.subprocess' % pbm, autospec=True) as mock_subprocess,\
+                patch('%s.locale' % pbm, autospec=True) as mock_locale:
             mock_getcwd.return_value = '/my/pwd'
             mock_locale.getDefaultLocale.return_value = ['foo', 'bar']
             res = self.cls.run_build('/repo/path')
@@ -498,18 +409,12 @@ class TestLocalBuild(object):
         def se_exc(foo, stderr=None):
             raise ex
 
-        with nested(
-                patch('%s.os.getcwd' % pbm),
-                patch('%s.os.chdir' % pbm),
-                patch('%s.subprocess' % pbm, autospec=True),
-                patch('%s.locale' % pbm, autospec=True),
-        ) as (
-            mock_getcwd,
-            mock_chdir,
-            mock_subprocess,
-            mock_locale,
-        ):
+        with patch('%s.os.getcwd' % pbm) as mock_getcwd, \
+                patch('%s.os.chdir' % pbm) as mock_chdir, \
+                patch('%s.subprocess' % pbm, autospec=True) as mock_subprocess,\
+                patch('%s.locale' % pbm, autospec=True) as mock_locale:
             mock_getcwd.return_value = '/my/pwd'
+            mock_locale.getDefaultLocale.return_value = ['foo', 'bar']
             mock_subprocess.check_output.side_effect = se_exc
             with pytest.raises(Exception) as excinfo:
                 self.cls.run_build('/repo/path')
@@ -535,18 +440,12 @@ class TestLocalBuild(object):
     def test_run_build_dry_run_py3(self):
         self.cls.dry_run = True
 
-        with nested(
-                patch('%s.os.getcwd' % pbm),
-                patch('%s.os.chdir' % pbm),
-                patch('%s.subprocess' % pbm, autospec=True),
-                patch('%s.locale' % pbm, autospec=True),
-        ) as (
-            mock_getcwd,
-            mock_chdir,
-            mock_subprocess,
-            mock_locale,
-        ):
+        with patch('%s.os.getcwd' % pbm) as mock_getcwd, \
+                patch('%s.os.chdir' % pbm) as mock_chdir, \
+                patch('%s.subprocess' % pbm, autospec=True) as mock_subprocess,\
+                patch('%s.locale' % pbm, autospec=True) as mock_locale:
             mock_getcwd.return_value = '/my/pwd'
+            mock_locale.getDefaultLocale.return_value = ['foo', 'bar']
             res = self.cls.run_build('/repo/path')
         assert mock_getcwd.mock_calls == []
         assert mock_chdir.mock_calls == []

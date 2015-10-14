@@ -40,7 +40,6 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 import sys
 import pytest
 import logging
-from contextlib import nested
 from rebuildbot.runner import (Runner, console_entry_point)
 from rebuildbot.version import (_VERSION, _PROJECT_URL)
 
@@ -134,12 +133,10 @@ class TestRunner(object):
 
     def test_console_entry_point(self):
         argv = ['/tmp/rebuildbot/runner.py']
-        with nested(
-                patch.object(sys, 'argv', argv),
-                patch('%s.ReBuildBot' % pbm),
-                patch('%s.logger' % pbm),
-        ) as (foo, mock_bot, mock_logger):
-            self.cls.console_entry_point()
+        with patch.object(sys, 'argv', argv):
+            with patch('%s.ReBuildBot' % pbm) as mock_bot, \
+                 patch('%s.logger' % pbm) as mock_logger:
+                self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call(dry_run=False),
             call().run(projects=None)
@@ -148,12 +145,10 @@ class TestRunner(object):
 
     def test_console_entry_point_projects(self):
         argv = ['/tmp/rebuildbot/runner.py', '-R', 'foo/bar', '-R', 'baz/blam']
-        with nested(
-                patch.object(sys, 'argv', argv),
-                patch('%s.ReBuildBot' % pbm),
-                patch('%s.logger' % pbm),
-        ) as (foo, mock_bot, mock_logger):
-            self.cls.console_entry_point()
+        with patch.object(sys, 'argv', argv):
+            with patch('%s.ReBuildBot' % pbm) as mock_bot, \
+                 patch('%s.logger' % pbm) as mock_logger:
+                self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call(dry_run=False),
             call().run(projects=['foo/bar', 'baz/blam'])
@@ -162,12 +157,10 @@ class TestRunner(object):
 
     def test_console_entry_point_dry_run(self):
         argv = ['/tmp/rebuildbot/runner.py', '--dry-run']
-        with nested(
-                patch.object(sys, 'argv', argv),
-                patch('%s.ReBuildBot' % pbm),
-                patch('%s.logger' % pbm),
-        ) as (foo, mock_bot, mock_logger):
-            self.cls.console_entry_point()
+        with patch.object(sys, 'argv', argv):
+            with patch('%s.ReBuildBot' % pbm) as mock_bot, \
+                 patch('%s.logger' % pbm) as mock_logger:
+                self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call(dry_run=True),
             call().run(projects=None)
@@ -176,13 +169,11 @@ class TestRunner(object):
 
     def test_console_entry_point_version(self, capsys):
         argv = ['/tmp/rebuildbot/runner.py', '-V']
-        with nested(
-                patch.object(sys, 'argv', argv),
-                patch('%s.ReBuildBot' % pbm),
-                patch('%s.logger' % pbm),
-        ) as (foo, mock_bot, mock_logger):
-            with pytest.raises(SystemExit) as excinfo:
-                self.cls.console_entry_point()
+        with patch.object(sys, 'argv', argv):
+            with patch('%s.ReBuildBot' % pbm) as mock_bot, \
+                 patch('%s.logger' % pbm) as mock_logger:
+                with pytest.raises(SystemExit) as excinfo:
+                    self.cls.console_entry_point()
         assert excinfo.value.code == 0
         assert mock_bot.mock_calls == []
         assert mock_logger.mock_calls == []
@@ -193,12 +184,10 @@ class TestRunner(object):
 
     def test_console_entry_point_verbose1(self):
         argv = ['/tmp/rebuildbot/runner.py', '-v']
-        with nested(
-                patch.object(sys, 'argv', argv),
-                patch('%s.ReBuildBot' % pbm),
-                patch('%s.logger' % pbm),
-        ) as (foo, mock_bot, mock_logger):
-            self.cls.console_entry_point()
+        with patch.object(sys, 'argv', argv):
+            with patch('%s.ReBuildBot' % pbm) as mock_bot, \
+                 patch('%s.logger' % pbm) as mock_logger:
+                self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call(dry_run=False),
             call().run(projects=None)
@@ -209,15 +198,13 @@ class TestRunner(object):
 
     def test_console_entry_point_verbose2(self):
         argv = ['/tmp/rebuildbot/runner.py', '-vv']
-        with nested(
-                patch.object(sys, 'argv', argv),
-                patch('%s.ReBuildBot' % pbm),
-                patch('%s.logger' % pbm),
-                patch('%s.logging.Formatter' % pbm),
-        ) as (foo, mock_bot, mock_logger, mock_formatter):
-            mock_handler = Mock()
-            type(mock_logger).handlers = [mock_handler]
-            self.cls.console_entry_point()
+        with patch.object(sys, 'argv', argv):
+            with patch('%s.ReBuildBot' % pbm) as mock_bot, \
+                 patch('%s.logger' % pbm) as mock_logger, \
+                 patch('%s.logging.Formatter' % pbm) as mock_formatter:
+                mock_handler = Mock()
+                type(mock_logger).handlers = [mock_handler]
+                self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call(dry_run=False),
             call().run(projects=None)

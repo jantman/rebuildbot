@@ -40,7 +40,6 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 import sys
 import datetime
 from base64 import b64encode
-from contextlib import nested
 
 from github import Github
 from github.AuthenticatedUser import AuthenticatedUser
@@ -110,15 +109,9 @@ class TestGitHubWrapper(object):
         type(mock_repo3).full_name = 'myuser/baz'
         mock_repo3.get_file_contents.side_effect = se_404
 
-        with nested(
-                patch('%s.get_repos' % pb),
-                patch('%s.repo_commit_in_last_day' % pb),
-                patch('%s.logger' % pbm),
-        ) as (
-            mock_get_repos,
-            mock_last_day,
-            mock_logger,
-        ):
+        with patch('%s.get_repos' % pb) as mock_get_repos, \
+                patch('%s.repo_commit_in_last_day' % pb) as mock_last_day, \
+                patch('%s.logger' % pbm) as mock_logger:
             mock_get_repos.return_value = [
                 mock_repo1, mock_repo2, mock_repo3
             ]
