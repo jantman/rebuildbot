@@ -41,11 +41,11 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 class GitTokenMissingError(Exception):
 
     def __init__(self):
-        msg = "ReBuildBot could not find your GitHub token. You must either " \
-              "set it as the GITHUB_TOKEN environment variable, or add it as " \
-              "the value of a 'token' key in the 'github' section of your " \
-              "~/.gitconfig file."
-        super(GitTokenMissingError, self).__init__(msg)
+        self.message = "ReBuildBot could not find your GitHub token. You must" \
+                       " either set it as the GITHUB_TOKEN environment " \
+                       "variable, or add it as the value of a 'token' key in " \
+                       "the 'github' section of your ~/.gitconfig file."
+        super(GitTokenMissingError, self).__init__(self.message)
 
 
 class TravisTriggerError(Exception):
@@ -59,16 +59,17 @@ class TravisTriggerError(Exception):
         self.headers = headers
         self.text = text
 
-        msg = "Got {sc} response code when triggering build of {r} ({b}) " \
-              "via <{url}>:\nHeaders:\n{h}\nResponse Body:\n{t}".format(
-                  sc=status_code,
-                  r=repo,
-                  b=branch,
-                  url=url,
-                  h=headers,
-                  t=text
-              )
-        super(TravisTriggerError, self).__init__(msg)
+        self.message = "Got {sc} response code when triggering build of {r} " \
+                       "({b}) via <{url}>:\nHeaders:\n{h}\nResponse Body:\n" \
+                       "{t}".format(
+                           sc=status_code,
+                           r=repo,
+                           b=branch,
+                           url=url,
+                           h=headers,
+                           t=text
+                       )
+        super(TravisTriggerError, self).__init__(self.message)
 
 
 class PollTimeoutException(Exception):
@@ -82,10 +83,10 @@ class PollTimeoutException(Exception):
         self.wait_time = wait_time
         self.num_times = num_times
 
-        msg = "Polling Travis for update to {pt} on {r} timed out after {s} " \
-              "seconds".format(
-                  pt=poll_type,
-                  r=repo,
-                  s=(wait_time * num_times)
-              )
-        super(PollTimeoutException, self).__init__(msg)
+        self.message = "Polling Travis for update to {pt} on {r} timed out " \
+                       "after {s} seconds".format(
+                           pt=poll_type,
+                           r=repo,
+                           s=(wait_time * num_times)
+                       )
+        super(PollTimeoutException, self).__init__(self.message)
