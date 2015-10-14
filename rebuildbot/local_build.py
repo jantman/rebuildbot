@@ -128,6 +128,7 @@ class LocalBuild(object):
             logger.info("DRY RUN - not actually cloning %s into %s",
                         self.repo_name, path)
             return path
+        excinfo = None
         for url in [
                 self.build_info.ssh_clone_url,
                 self.build_info.https_clone_url
@@ -142,8 +143,8 @@ class LocalBuild(object):
                 logger.debug("Cloned %s to %s", url, path)
                 return path
             except Exception as ex:
-                continue
-        raise ex
+                excinfo = ex
+        raise excinfo
 
     def run_build(self, repo_path):
         """
