@@ -56,7 +56,7 @@ if sys.version_info[0] < 3:
     from ConfigParser import SafeConfigParser
     from ConfigParser import (NoSectionError, NoOptionError)
     from StringIO import StringIO
-else:
+else:  # nocoverage
     from configparser import ConfigParser as SafeConfigParser
     from configparser import (NoSectionError, NoOptionError)
     from io import StringIO
