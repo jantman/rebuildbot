@@ -104,8 +104,19 @@ class TestLocalBuild(object):
         ]
         assert mock_rmtree.mock_calls == [call('/my/clone/path')]
 
+    def make_exc_info(self, is_called_proc_error=False):
+        """generate an exception traceback"""
+        try:
+            if is_called_proc_error:
+                raise subprocess.CalledProcessError(4, 'mycmd', 'my out')
+            else:
+                raise Exception("foo")
+        except:
+            ex_type, ex, tb = sys.exc_info()
+        return (ex_type, ex, tb)
+
     def test_run_clone_exception(self):
-        ex = Exception("foo")
+        ex_t, ex, tb = self.make_exc_info()
 
         def clone_se():
             raise ex
@@ -113,6 +124,7 @@ class TestLocalBuild(object):
         with patch('%s.clone_repo' % pb) as mock_clone, \
                 patch('%s.run_build' % pb) as mock_run, \
                 patch('%s.rmtree' % pbm) as mock_rmtree, \
+                patch('%s.sys.exc_info' % pbm) as mock_excinfo, \
                 patch('%s.get_time' % pb) as mock_time:
             mock_clone.side_effect = clone_se
             mock_run.return_value = 'my output'
@@ -120,16 +132,18 @@ class TestLocalBuild(object):
                 datetime(2015, 1, 1, 1, 0, 0),
                 datetime(2015, 1, 1, 2, 0, 0),
             ]
+            mock_excinfo.return_value = ex_t, ex, tb
             self.cls.run()
         assert mock_clone.mock_calls == [call()]
         assert mock_run.mock_calls == []
         assert self.bi.mock_calls == [
-            call.set_local_build(return_code=-1, excinfo=ex)
+            call.set_local_build(return_code=-1, excinfo=ex,
+                                 ex_type=ex_t, traceback=tb)
         ]
         assert mock_rmtree.mock_calls == []
 
     def test_run_subprocess_error(self):
-        ex = subprocess.CalledProcessError(4, 'mycmd', 'my out')
+        ex_t, ex, tb = self.make_exc_info(True)
 
         def se_ex():
             raise ex
@@ -137,6 +151,7 @@ class TestLocalBuild(object):
         with patch('%s.clone_repo' % pb) as mock_clone, \
                 patch('%s.run_build' % pb) as mock_run, \
                 patch('%s.rmtree' % pbm) as mock_rmtree, \
+                patch('%s.sys.exc_info' % pbm) as mock_excinfo, \
                 patch('%s.get_time' % pb) as mock_time:
             mock_clone.return_value = '/my/clone/path'
             mock_run.side_effect = se_ex
@@ -144,16 +159,18 @@ class TestLocalBuild(object):
                 datetime(2015, 1, 1, 1, 0, 0),
                 datetime(2015, 1, 1, 2, 0, 0),
             ]
+            mock_excinfo.return_value = ex_t, ex, tb
             self.cls.run()
         assert mock_clone.mock_calls == [call()]
         assert mock_run.mock_calls == [call()]
         assert self.bi.mock_calls == [
-            call.set_local_build(excinfo=ex, output='my out', return_code=4)
+            call.set_local_build(excinfo=ex, output='my out', return_code=4,
+                                 ex_type=ex_t, traceback=tb)
         ]
         assert mock_rmtree.mock_calls == [call('/my/clone/path')]
 
     def test_run_other_exception(self):
-        ex = Exception("foo")
+        ex_t, ex, tb = self.make_exc_info()
 
         def se_ex():
             raise ex
@@ -161,6 +178,7 @@ class TestLocalBuild(object):
         with patch('%s.clone_repo' % pb) as mock_clone, \
                 patch('%s.run_build' % pb) as mock_run, \
                 patch('%s.rmtree' % pbm) as mock_rmtree, \
+                patch('%s.sys.exc_info' % pbm) as mock_excinfo, \
                 patch('%s.get_time' % pb) as mock_time:
             mock_clone.return_value = '/my/clone/path'
             mock_run.side_effect = se_ex
@@ -168,11 +186,12 @@ class TestLocalBuild(object):
                 datetime(2015, 1, 1, 1, 0, 0),
                 datetime(2015, 1, 1, 2, 0, 0),
             ]
+            mock_excinfo.return_value = ex_t, ex, tb
             self.cls.run()
         assert mock_clone.mock_calls == [call()]
         assert mock_run.mock_calls == [call()]
         assert self.bi.mock_calls == [
-            call.set_local_build(excinfo=ex)
+            call.set_local_build(excinfo=ex, ex_type=ex_t, traceback=tb)
         ]
         assert mock_rmtree.mock_calls == [call('/my/clone/path')]
 

@@ -38,6 +38,8 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 """
 
 import sys
+import traceback
+from datetime import timedelta
 from rebuildbot.buildinfo import BuildInfo
 
 if (
@@ -66,8 +68,11 @@ class TestBuildInfoInit(object):
         assert cls.local_build_return_code is None
         assert cls.local_build_output is None
         assert cls.local_build_exception is None
+        assert cls.local_build_ex_type is None
+        assert cls.local_build_traceback is None
         assert cls.local_build_finished is False
         assert cls.local_build_duration is None
+        assert cls.local_build_s3_link is None
         assert cls.run_local is False
         assert cls.travis_build_result is None
         assert cls.travis_build_state is None
@@ -90,8 +95,11 @@ class TestBuildInfoInit(object):
         assert cls.local_build_return_code is None
         assert cls.local_build_output is None
         assert cls.local_build_exception is None
+        assert cls.local_build_ex_type is None
+        assert cls.local_build_traceback is None
         assert cls.local_build_finished is False
         assert cls.local_build_duration is None
+        assert cls.local_build_s3_link is None
         assert cls.run_local is True
         assert cls.travis_build_result is None
         assert cls.travis_build_state is None
@@ -114,8 +122,11 @@ class TestBuildInfoInit(object):
         assert cls.local_build_return_code is None
         assert cls.local_build_output is None
         assert cls.local_build_exception is None
+        assert cls.local_build_ex_type is None
+        assert cls.local_build_traceback is None
         assert cls.local_build_finished is False
         assert cls.local_build_duration is None
+        assert cls.local_build_s3_link is None
         assert cls.run_local is False
         assert cls.travis_build_result is None
         assert cls.travis_build_state is None
@@ -200,10 +211,14 @@ class TestBuildInfo(object):
 
     def test_set_local_build_exception(self):
         ex = Exception("foo")
-        self.cls.set_local_build(excinfo=ex)
+        tb = Mock()
+        ex_type = Mock()
+        self.cls.set_local_build(excinfo=ex, ex_type=ex_type, traceback=tb)
         assert self.cls.local_build_return_code is None
         assert self.cls.local_build_output is None
         assert self.cls.local_build_exception == ex
+        assert self.cls.local_build_ex_type == ex_type
+        assert self.cls.local_build_traceback == tb
         assert self.cls.local_build_finished is True
 
     def test_set_dry_run(self):
@@ -218,8 +233,11 @@ class TestBuildInfo(object):
         assert self.cls.local_build_return_code is None
         assert self.cls.local_build_output is None
         assert self.cls.local_build_exception is None
+        assert self.cls.local_build_ex_type is None
+        assert self.cls.local_build_traceback is None
         assert self.cls.local_build_finished is False
         assert self.cls.local_build_duration is None
+        assert self.cls.local_build_s3_link is None
         assert self.cls.run_local is True
         assert self.cls.travis_build_result is None
         assert self.cls.travis_build_state == 'DRY RUN'
@@ -229,3 +247,28 @@ class TestBuildInfo(object):
         assert self.cls.travis_build_number == -1
         assert self.cls.travis_build_url == '#'
         assert self.cls.travis_build_finished is True
+
+    def test_local_build_output_str(self):
+        self.cls.local_build_output = 'my output'
+        self.cls.local_build_return_code = 3
+        self.cls.local_build_duration = timedelta(hours=1, minutes=2, seconds=3)
+        res = self.cls.local_build_output_str
+        assert res == "my output\n\n=> Build exited 3 in 1:02:03"
+
+    def test_local_build_output_str_exception(self):
+        # get an exception with a traceback
+        try:
+            raise Exception("foo")
+        except Exception:
+            ex_type, ex, tb = sys.exc_info()
+            self.cls.local_build_exception = ex
+            self.cls.local_build_ex_type = ex_type
+            self.cls.local_build_traceback = tb
+        res = self.cls.local_build_output_str
+        assert res == "Build raised exception:\n" + ''.join(
+            traceback.format_exception(ex_type, ex, tb)
+        )
+
+    def test_set_local_build_s3_link(self):
+        self.cls.set_local_build_s3_link('foo')
+        assert self.cls.local_build_s3_link == 'foo'

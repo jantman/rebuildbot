@@ -80,7 +80,9 @@ class LocalBuild(object):
             repo_path = self.clone_repo()
         except Exception as ex:
             logger.exception("Exception while cloning %s", self.repo_name)
-            self.build_info.set_local_build(excinfo=ex, return_code=-1)
+            ex_type, ex, tb = sys.exc_info()
+            self.build_info.set_local_build(excinfo=ex, return_code=-1,
+                                            ex_type=ex_type, traceback=tb)
             return
         try:
             start = self.get_time()
@@ -91,10 +93,13 @@ class LocalBuild(object):
         except subprocess.CalledProcessError as ex:
             logger.exception("Exception while running local build of %s",
                              self.repo_name)
+            ex_type, ex, tb = sys.exc_info()
             self.build_info.set_local_build(
                 excinfo=ex,
                 output=ex.output,
-                return_code=ex.returncode
+                return_code=ex.returncode,
+                ex_type=ex_type,
+                traceback=tb
             )
             logger.debug("shutil.rmtree(%s)", repo_path)
             rmtree(repo_path)
@@ -102,7 +107,9 @@ class LocalBuild(object):
         except Exception as ex:
             logger.exception("Exception while running local build of %s",
                              self.repo_name)
-            self.build_info.set_local_build(excinfo=ex)
+            ex_type, ex, tb = sys.exc_info()
+            self.build_info.set_local_build(excinfo=ex, ex_type=ex_type,
+                                            traceback=tb)
             logger.debug("shutil.rmtree(%s)", repo_path)
             rmtree(repo_path)
             return

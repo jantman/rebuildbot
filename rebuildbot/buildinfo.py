@@ -37,6 +37,8 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 ################################################################################
 """
 
+import traceback
+
 from rebuildbot.travis import Travis
 
 
@@ -73,8 +75,11 @@ class BuildInfo(object):
         self.local_build_return_code = None  # local build exit code
         self.local_build_output = None  # string local build output
         self.local_build_exception = None  # exception when running local build
+        self.local_build_ex_type = None
+        self.local_build_traceback = None
         self.local_build_finished = False
         self.local_build_duration = None
+        self.local_build_s3_link = None
 
         # set by self.set_travis_build_finished()
         # these mirror the fields of :py:class:`travispy.entities.build.Build`
@@ -140,7 +145,7 @@ class BuildInfo(object):
         self.travis_build_finished = True
 
     def set_local_build(self, return_code=None, output=None, excinfo=None,
-                        duration=None):
+                        ex_type=None, traceback=None, duration=None):
         """
         When a local build is finished, update with its return code and
         output string.
@@ -151,14 +156,29 @@ class BuildInfo(object):
         :type output: string
         :param excinfo: Exception encountered during build, if any
         :type excinfo: Exception
+        :param traceback: the traceback associated with this exception
+        :type traceback: traceback
+        :param ex_type: the exception type
+        :type ex_type: type
         :param duration: duration of the build (excluding git clone)
-        :type duration: datetime.datetime.timedelta
+        :type duration: datetime.timedelta
         """
         self.local_build_return_code = return_code
         self.local_build_output = output
         self.local_build_exception = excinfo
+        self.local_build_ex_type = ex_type
+        self.local_build_traceback = traceback
         self.local_build_finished = True
         self.local_build_duration = duration
+
+    def set_local_build_s3_link(self, link):
+        """
+        Set the link to where the local build output was uploaded to S3.
+
+        :param link: the HTTP link to the S3 object
+        :type link: str
+        """
+        self.local_build_s3_link = link
 
     def set_dry_run(self):
         """
@@ -178,5 +198,53 @@ class BuildInfo(object):
         self.travis_build_number = -1
         self.travis_build_url = '#'
 
-    def make_html_info(self):
+    @property
+    def local_build_output_str(self):
+        """
+        Return the string local build output. This is made up of
+        ``local_build_output`` plus the return code, or the traceback of the
+        exception if one was raised while running the build
+
+        :rtype: str
+        """
+        if self.local_build_exception is not None:
+            return "Build raised exception:\n" + ''.join(
+                traceback.format_exception(
+                    self.local_build_ex_type, self.local_build_exception,
+                    self.local_build_traceback
+                ))
+        return "{o}\n\n=> Build exited {r} in {d}".format(
+            o=self.local_build_output,
+            r=self.local_build_return_code,
+            d=self.local_build_duration
+        )
+
+    def make_travis_html(self):
+        """
+        Return an HTML string describing the Travis build outcome.
+
+        :rtype: str
+        """
+        pass
+
+    @property
+    def local_build_color(self):
+        """
+        Return a TravisCI build color for the local build.
+
+        :rtype: str
+        """
+        if self.local_build_exception is not None:
+            return 'red'
+        if self.local_build_return_code == 0:
+            return 'green'
+        return 'red'
+
+    def make_local_build_html(self):
+        """
+        Return an HTML string describing the local build outcome.
+
+        :rtype: str
+        """
+        # use the same colors as Travis?
         pass
