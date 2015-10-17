@@ -78,6 +78,7 @@ setup(
     author='Jason Antman',
     author_email='jason@jasonantman.com',
     packages=find_packages(),
+    package_data={'rebuildbot': ['templates/*.html']},
     entry_points="""
     [console_scripts]
     rebuildbot = rebuildbot.runner:console_entry_point
