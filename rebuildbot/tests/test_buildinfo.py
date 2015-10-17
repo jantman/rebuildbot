@@ -46,9 +46,9 @@ if (
         sys.version_info[0] < 3 or
         sys.version_info[0] == 3 and sys.version_info[1] < 4
 ):
-    from mock import patch, call, Mock
+    from mock import patch, call, Mock, PropertyMock
 else:
-    from unittest.mock import patch, call, Mock
+    from unittest.mock import patch, call, Mock, PropertyMock
 
 pbm = 'rebuildbot.buildinfo'
 pb = '%s.BuildInfo' % pbm
@@ -272,3 +272,57 @@ class TestBuildInfo(object):
     def test_set_local_build_s3_link(self):
         self.cls.set_local_build_s3_link('foo')
         assert self.cls.local_build_s3_link == 'foo'
+
+    def test_make_travis_html(self):
+        self.cls.travis_build_url = 'myurl'
+        self.cls.travis_build_number = 123
+        self.cls.travis_build_duration = 1057  # 0:17:37
+        with patch('%s.travis_build_icon' % pb,
+                   new_callable=PropertyMock) as mock_icon:
+            mock_icon.return_value = 'icon'
+            res = self.cls.make_travis_html()
+        expected = '<span class=".icon"> </span>'
+        expected += '<a href="myurl">#123</a> ran in 0:17:37'
+        assert res == expected
+
+    def test_travis_build_icon_canceled(self):
+        self.cls.travis_build_state = 'canceled'
+        assert self.cls.travis_build_icon == 'icon_errored'
+
+    def test_travis_build_icon_errored(self):
+        self.cls.travis_build_state = 'errored'
+        assert self.cls.travis_build_icon == 'icon_errored'
+
+    def test_travis_build_icon_failed(self):
+        self.cls.travis_build_state = 'failed'
+        assert self.cls.travis_build_icon == 'icon_failed'
+
+    def test_travis_build_icon_passed(self):
+        self.cls.travis_build_state = 'passed'
+        assert self.cls.travis_build_icon == 'icon_passed'
+
+    def test_travis_build_icon_other(self):
+        self.cls.travis_build_state = 'foo'
+        assert self.cls.travis_build_icon == ''
+
+    def test_local_build_icon_exception(self):
+        self.cls.local_build_exception = Mock()
+        assert self.cls.local_build_icon == 'icon_errored'
+
+    def test_local_build_icon_passed(self):
+        self.cls.local_build_return_code = 0
+        assert self.cls.local_build_icon == 'icon_passed'
+
+    def test_local_build_icon_failed(self):
+        self.cls.local_build_return_code = 4
+        assert self.cls.local_build_icon == 'icon_failed'
+
+    def test_make_local_build_html(self):
+        self.cls.local_build_s3_link = 's3link'
+        self.cls.local_build_duration = timedelta(hours=1, minutes=2, seconds=3)
+        with patch('%s.local_build_icon' % pb,
+                   new_callable=PropertyMock) as mock_icon:
+            mock_icon.return_value = 'icon'
+            res = self.cls.make_local_build_html()
+        assert res == '<span class=".icon"> </span><a href="s3link">Local ' \
+            'Build</a> ran in 1:02:03'

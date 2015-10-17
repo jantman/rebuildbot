@@ -38,6 +38,7 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 """
 
 import traceback
+from datetime import timedelta
 
 from rebuildbot.travis import Travis
 
@@ -225,20 +226,41 @@ class BuildInfo(object):
 
         :rtype: str
         """
-        pass
+        s = '<span class=".{icon}"> </span>'.format(icon=self.travis_build_icon)
+        s += '<a href="{url}">#{num}</a> ran in {d}'.format(
+            url=self.travis_build_url,
+            num=self.travis_build_number,
+            d=timedelta(seconds=self.travis_build_duration)
+        )
+        return s
 
     @property
-    def local_build_color(self):
+    def travis_build_icon(self):
         """
-        Return a TravisCI build color for the local build.
+        Return a build icon CSS class name for the Travis build.
+
+        :rtype: str
+        """
+        if self.travis_build_state in ['canceled', 'errored']:
+            return 'icon_errored'
+        if self.travis_build_state == 'failed':
+            return 'icon_failed'
+        if self.travis_build_state == 'passed':
+            return 'icon_passed'
+        return ''
+
+    @property
+    def local_build_icon(self):
+        """
+        Return a build icon CSS class name for the local build.
 
         :rtype: str
         """
         if self.local_build_exception is not None:
-            return 'red'
+            return 'icon_errored'
         if self.local_build_return_code == 0:
-            return 'green'
-        return 'red'
+            return 'icon_passed'
+        return 'icon_failed'
 
     def make_local_build_html(self):
         """
@@ -246,5 +268,9 @@ class BuildInfo(object):
 
         :rtype: str
         """
-        # use the same colors as Travis?
-        pass
+        s = '<span class=".{icon}"> </span>'.format(icon=self.local_build_icon)
+        s += '<a href="{url}">Local Build</a> ran in {d}'.format(
+            url=self.local_build_s3_link,
+            d=self.local_build_duration
+        )
+        return s
