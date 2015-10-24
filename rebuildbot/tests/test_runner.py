@@ -104,6 +104,11 @@ class TestRunner(object):
                                 action='store', help='Prefix to prepend to all '
                                 'keys created in S3 (default: rebuildbot)',
                                 default='rebuildbot'),
+            call().add_argument('--no-date-check', dest='date_check',
+                                action='store_false', default=True,
+                                help='bypass commit date check on repos, '
+                                'running local builds regardless of date of '
+                                'last commit to master.'),
             call().add_argument('BUCKET_NAME', action='store', type=str,
                                 help='Name of S3 bucket to upload reports to'),
             call().parse_args([]),
@@ -112,6 +117,11 @@ class TestRunner(object):
     def test_parse_args_verbose1(self):
         res = self.cls.parse_args(['-v', 'bktname'])
         assert res.verbose == 1
+        assert res.date_check is True
+
+    def test_parse_args_date_check(self):
+        res = self.cls.parse_args(['--no-date-check', 'bktname'])
+        assert res.date_check is False
 
     def test_parse_args_verbose2(self):
         res = self.cls.parse_args(['-vv', 'bktname'])
@@ -151,7 +161,21 @@ class TestRunner(object):
                  patch('%s.logger' % pbm) as mock_logger:
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
-            call('bktname', s3_prefix='rebuildbot', dry_run=False),
+            call('bktname', s3_prefix='rebuildbot', dry_run=False,
+                 date_check=True),
+            call().run(projects=None)
+        ]
+        assert mock_logger.mock_calls == []
+
+    def test_console_entry_point_no_date_check(self):
+        argv = ['/tmp/rebuildbot/runner.py', '--no-date-check', 'bktname']
+        with patch.object(sys, 'argv', argv):
+            with patch('%s.ReBuildBot' % pbm) as mock_bot, \
+                 patch('%s.logger' % pbm) as mock_logger:
+                self.cls.console_entry_point()
+        assert mock_bot.mock_calls == [
+            call('bktname', s3_prefix='rebuildbot', dry_run=False,
+                 date_check=False),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
@@ -163,7 +187,8 @@ class TestRunner(object):
                  patch('%s.logger' % pbm) as mock_logger:
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
-            call('bktname', s3_prefix='my/prefix', dry_run=False),
+            call('bktname', s3_prefix='my/prefix', dry_run=False,
+                 date_check=True),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
@@ -176,7 +201,8 @@ class TestRunner(object):
                  patch('%s.logger' % pbm) as mock_logger:
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
-            call('bktname', s3_prefix='rebuildbot', dry_run=False),
+            call('bktname', s3_prefix='rebuildbot', dry_run=False,
+                 date_check=True),
             call().run(projects=['foo/bar', 'baz/blam'])
         ]
         assert mock_logger.mock_calls == []
@@ -188,7 +214,8 @@ class TestRunner(object):
                  patch('%s.logger' % pbm) as mock_logger:
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
-            call('bktname', s3_prefix='rebuildbot', dry_run=True),
+            call('bktname', s3_prefix='rebuildbot', dry_run=True,
+                 date_check=True),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
@@ -215,7 +242,8 @@ class TestRunner(object):
                  patch('%s.logger' % pbm) as mock_logger:
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
-            call('bktname', s3_prefix='rebuildbot', dry_run=False),
+            call('bktname', s3_prefix='rebuildbot', dry_run=False,
+                 date_check=True),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == [
@@ -232,7 +260,8 @@ class TestRunner(object):
                 type(mock_logger).handlers = [mock_handler]
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
-            call('bktname', s3_prefix='rebuildbot', dry_run=False),
+            call('bktname', s3_prefix='rebuildbot', dry_run=False,
+                 date_check=True),
             call().run(projects=None)
         ]
 

@@ -96,6 +96,7 @@ class TestReBuildBotInit(object):
         assert cls.dry_run is False
         assert cls.builds == {}
         assert cls.s3_prefix == 'rebuildbot'
+        assert cls.date_check is True
 
     def test_init_dry_run(self):
         with \
@@ -104,7 +105,8 @@ class TestReBuildBotInit(object):
              patch('%s.Travis' % pbm) as mock_travis, \
              patch('%s.connect_s3' % pb) as mock_connect_s3:
             mock_get_gh_token.return_value = 'myGHtoken'
-            cls = ReBuildBot('mybucket', s3_prefix='foo', dry_run=True)
+            cls = ReBuildBot('mybucket', s3_prefix='foo', dry_run=True,
+                             date_check=False)
         assert mock_get_gh_token.mock_calls == [call()]
         assert mock_gh.mock_calls == [call('myGHtoken')]
         assert mock_travis.mock_calls == [call('myGHtoken')]
@@ -116,6 +118,7 @@ class TestReBuildBotInit(object):
         assert cls.dry_run is True
         assert cls.builds == {}
         assert cls.s3_prefix == 'foo'
+        assert cls.date_check is False
 
 
 class TestReBuildBot(object):
@@ -259,6 +262,7 @@ class TestReBuildBot(object):
         ]
 
     def test_find_projects_automatic(self):
+        self.cls.date_check = 'foo'
         self.cls.github.find_projects.return_value = {
             'a/p1': ('clone_a_p1', 'ssh_a_p1'),
             'a/p2': ('clone_a_p2', 'ssh_a_p2'),
@@ -268,7 +272,9 @@ class TestReBuildBot(object):
             'a/p3',
         ]
         res = self.cls.find_projects(None)
-        assert self.cls.github.mock_calls == [call.find_projects()]
+        assert self.cls.github.mock_calls == [
+            call.find_projects(date_check='foo')
+        ]
         assert self.cls.travis.mock_calls == [call.get_repos()]
         assert len(res) == 3
         assert res['a/p1'].slug == 'a/p1'

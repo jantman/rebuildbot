@@ -63,6 +63,8 @@ A sample ``.rebuildbot.sh`` for a Puppet module with Beaker acceptance tests mig
     #!/bin/bash -x
     echo "foo"
 
+By default, any repositories with commits on master in the last 24 hours will not have local tests run. To bypass this behavior and run tests for all repositories that have a ``.rebuildbot.sh`` present, run with ``--no-date-check``.
+
 Security
 ========
 

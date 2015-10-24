@@ -80,7 +80,8 @@ class ReBuildBot(object):
     Main class for ReBuildBot - this is where everything happens.
     """
 
-    def __init__(self, bucket_name, s3_prefix='rebuildbot', dry_run=False):
+    def __init__(self, bucket_name, s3_prefix='rebuildbot', dry_run=False,
+                 date_check=True):
         """
         Initialize ReBuildBot and attempt to connect to all external services.
 
@@ -91,8 +92,12 @@ class ReBuildBot(object):
         :param dry_run: log what would be done, and perform normal output/
           notifications, but do not actually run any tests
         :type dry_run: boolean
+        :param date_check: whether or not to skip running local builds on repos
+        with a commit to master in the last 24 hours; if True, skip those repos
+        :type date_check: bool
         """
         self.s3_prefix = s3_prefix
+        self.date_check = date_check
         self.gh_token = self.get_github_token()
         self.github = GitHubWrapper(self.gh_token)
         self.travis = Travis(self.gh_token)
@@ -314,7 +319,8 @@ class ReBuildBot(object):
         if projects is None:
             logger.info("Finding candidate projects from Travis and GitHub")
             # GitHub
-            for repo, tup in self.github.find_projects().items():
+            for repo, tup in self.github.find_projects(
+                    date_check=self.date_check).items():
                 https_clone_url, ssh_clone_url = tup
                 builds[repo] = BuildInfo(repo, run_local=True,
                                          https_clone_url=https_clone_url,

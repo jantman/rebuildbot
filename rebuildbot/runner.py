@@ -112,6 +112,11 @@ class Runner(object):
                        action='store', help='Prefix to prepend to all '
                        'keys created in S3 (default: rebuildbot)',
                        default='rebuildbot')
+        p.add_argument('--no-date-check', dest='date_check',
+                       action='store_false', default=True,
+                       help='bypass commit date check on repos, '
+                       'running local builds regardless of date of '
+                       'last commit to master.')
         p.add_argument('BUCKET_NAME', action='store', type=str,
                        help='Name of S3 bucket to upload reports to')
         args = p.parse_args(argv)
@@ -137,7 +142,7 @@ class Runner(object):
             raise SystemExit(0)
 
         bot = ReBuildBot(args.BUCKET_NAME, s3_prefix=args.s3_prefix,
-                         dry_run=args.dry_run)
+                         dry_run=args.dry_run, date_check=args.date_check)
         bot.run(projects=args.repos)
 
 

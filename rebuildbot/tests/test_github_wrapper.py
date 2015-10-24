@@ -123,6 +123,45 @@ class TestGitHubWrapper(object):
                        "present", 'myuser/baz'),
         ]
 
+    def test_find_projects_no_date_check(self):
+
+        def se_404(fname):
+            raise UnknownObjectException(404, 'some data')
+
+        mock_repo1 = Mock(spec_set=Repository)
+        type(mock_repo1).full_name = 'myuser/foo'
+        mock_repo1.get_file_contents.return_value = True
+        type(mock_repo1).clone_url = 'cloneurl'
+        type(mock_repo1).ssh_url = 'sshurl'
+
+        mock_repo2 = Mock(spec_set=Repository)
+        type(mock_repo2).full_name = 'myuser/bar'
+        mock_repo2.get_file_contents.return_value = True
+        type(mock_repo2).clone_url = 'cloneurl2'
+        type(mock_repo2).ssh_url = 'sshurl2'
+
+        mock_repo3 = Mock(spec_set=Repository)
+        type(mock_repo3).full_name = 'myuser/baz'
+        mock_repo3.get_file_contents.side_effect = se_404
+
+        with patch('%s.get_repos' % pb) as mock_get_repos, \
+                patch('%s.repo_commit_in_last_day' % pb) as mock_last_day, \
+                patch('%s.logger' % pbm) as mock_logger:
+            mock_get_repos.return_value = [
+                mock_repo1, mock_repo2, mock_repo3
+            ]
+            mock_last_day.side_effect = [False, True, False]
+            res = self.cls.find_projects(date_check=False)
+
+        assert res == {
+            'myuser/foo': ('cloneurl', 'sshurl'),
+            'myuser/bar': ('cloneurl2', 'sshurl2'),
+        }
+        assert mock_logger.mock_calls == [
+            call.debug("Skipping repository '%s' - .rebuildbot.sh not "
+                       "present", 'myuser/baz'),
+        ]
+
     def test_get_project_config(self):
         mock_repo1 = Mock(spec_set=Repository)
         type(mock_repo1).full_name = 'myuser/foo'

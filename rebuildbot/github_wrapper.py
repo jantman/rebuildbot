@@ -58,7 +58,7 @@ class GitHubWrapper(object):
         self.github = Github(token)
         logger.debug("Connected to GitHub API")
 
-    def find_projects(self):
+    def find_projects(self, date_check=True):
         """
         Iterate all GitHub repositories and find any with a .rebuildbot.sh;
         remove from this set any which have had a commit on master in the last
@@ -66,13 +66,16 @@ class GitHubWrapper(object):
         full name / slug, and values are 2-tuples (HTTPS clone URL,
         SSH clone URL)
 
+        :param date_check: whether or not to skip running local builds on repos
+        with a commit to master in the last 24 hours; if True, skip those repos
+        :type date_check: bool
         :returns: dict of repository slug strings to 2-tuples of (HTTPS clone
         URL string, SSH clone URL string)
         :rtype: dict
         """
         projects = {}
         for repo in self.get_repos():
-            if self.repo_commit_in_last_day(repo):
+            if self.repo_commit_in_last_day(repo) and date_check:
                 logger.debug("Skipping repository '%s' - commit on master in "
                              "last day", repo.full_name)
                 continue
