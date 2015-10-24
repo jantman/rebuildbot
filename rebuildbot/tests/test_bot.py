@@ -403,11 +403,13 @@ class TestReBuildBot(object):
 
         def se_run_travis(repo_slug, branch='master'):
             if repo_slug == 'foo/bar':
-                return 1
+                return (1, 2)
             if repo_slug == 'foo/blam':
                 raise exc_blam
             if repo_slug == 'foo/blarg':
                 raise exc_blarg
+            if repo_slug == 'foo/other':
+                return (1, None)
 
         bi_bar = BuildInfo('foo/bar', None)
         bi_bar.run_travis = True
@@ -421,6 +423,8 @@ class TestReBuildBot(object):
         bi_quux = BuildInfo('foo/quux', None)
         bi_quux.run_travis = True
         bi_quux.travis_build_finished = True
+        bi_other = BuildInfo('foo/other', None)
+        bi_other.run_travis = True
 
         self.cls.builds = {
             'foo/bar': bi_bar,
@@ -429,6 +433,7 @@ class TestReBuildBot(object):
             'foo/blarg': bi_blarg,
             'foo/foo': bi_foo,
             'foo/quux': bi_quux,
+            'foo/other': bi_other,
         }
         self.cls.travis.run_build.side_effect = se_run_travis
         self.cls.start_travis_builds()
@@ -436,12 +441,16 @@ class TestReBuildBot(object):
             call('foo/bar'),
             call('foo/blam'),
             call('foo/blarg'),
+            call('foo/other'),
         ]
-        assert self.cls.builds['foo/bar'].travis_build_id == 1
+        assert self.cls.builds['foo/bar'].travis_build_id == 2
+        assert self.cls.builds['foo/bar'].travis_last_build_id == 1
         assert self.cls.builds['foo/blam'].travis_build_id is None
         assert self.cls.builds['foo/blam'].travis_trigger_error == exc_blam
         assert self.cls.builds['foo/blarg'].travis_build_id is None
         assert self.cls.builds['foo/blarg'].travis_trigger_error == exc_blarg
+        assert self.cls.builds['foo/other'].travis_build_id is None
+        assert self.cls.builds['foo/other'].travis_last_build_id == 1
 
     def test_start_travis_builds_dry_run(self):
         self.cls.dry_run = True
@@ -563,17 +572,36 @@ class TestReBuildBot(object):
         type(build4).travis_build_finished = False
         type(build4).travis_build_id = 456
 
+        build5 = Mock(spec_set=BuildInfo)
+        type(build5).run_travis = PropertyMock(return_value=True)
+        type(build5).travis_build_finished = False
+        type(build5).travis_build_id = None
+
+        build6 = Mock(spec_set=BuildInfo)
+        type(build6).run_travis = PropertyMock(return_value=True)
+        type(build6).travis_build_finished = False
+        type(build6).travis_build_id = None
+
         mock_travis_build3 = Mock()
         type(mock_travis_build3).finished = PropertyMock(return_value=True)
         mock_travis_build4 = Mock()
         type(mock_travis_build4).finished = PropertyMock(return_value=False)
+        mock_travis_build5 = Mock()
+        type(mock_travis_build5).finished = PropertyMock(return_value=False)
 
         def se_get_build(build_id):
             if build_id == 123:
                 return mock_travis_build3
             if build_id == 456:
                 return mock_travis_build4
+            if build_id == 789:
+                return mock_travis_build5
             return Mock()
+
+        def se_update(build):
+            if build == build5:
+                return 789
+            return None
 
         self.cls.travis.get_build.side_effect = se_get_build
 
@@ -582,13 +610,18 @@ class TestReBuildBot(object):
             'a/2': build2,
             'a/3': build3,
             'a/4': build4,
+            'a/5': build5,
+            'a/6': build6,
         }
 
-        self.cls.poll_travis_updates()
+        with patch('%s.update_travis_build' % pb) as mock_update:
+            mock_update.side_effect = se_update
+            self.cls.poll_travis_updates()
 
         assert self.cls.travis.mock_calls == [
             call.get_build(123),
             call.get_build(456),
+            call.get_build(789),
         ]
         assert build1.mock_calls == []
         assert build2.mock_calls == []
@@ -596,6 +629,12 @@ class TestReBuildBot(object):
             call.set_travis_build_finished(mock_travis_build3)
         ]
         assert build4.mock_calls == []
+        assert build5.mock_calls == []
+        assert build6.mock_calls == []
+        assert mock_update.mock_calls == [
+            call(build5),
+            call(build6),
+        ]
 
     def test_poll_travis_updates_dry_run(self):
         self.cls.dry_run = True
@@ -891,3 +930,32 @@ class TestReBuildBot(object):
                 call.make_travis_html(),
                 call.make_local_build_html()
             ]
+
+    def test_update_travis_build(self):
+        b = Mock(spec_set=BuildInfo)
+        type(b).slug = 'my/slug'
+        type(b).travis_last_build_id = 1
+
+        self.mock_travis.wait_for_new_build.return_value = 2
+        res = self.cls.update_travis_build(b)
+        assert b.mock_calls == [call.set_travis_build_ids(1, 2)]
+        assert self.mock_travis.mock_calls == [
+            call.wait_for_new_build('my/slug', 1)
+        ]
+        assert res == 2
+
+    def test_update_travis_build_timeout(self):
+        b = Mock(spec_set=BuildInfo)
+        type(b).slug = 'my/slug'
+        type(b).travis_last_build_id = 1
+
+        def se_travis(slug, bid):
+            raise PollTimeoutException('mytype', 'myrepo', 3, 2)
+
+        self.mock_travis.wait_for_new_build.side_effect = se_travis
+        res = self.cls.update_travis_build(b)
+        assert b.mock_calls == []
+        assert self.mock_travis.mock_calls == [
+            call.wait_for_new_build('my/slug', 1)
+        ]
+        assert res is None

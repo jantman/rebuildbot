@@ -70,6 +70,7 @@ class BuildInfo(object):
         self.run_local = run_local  # whether or not to run local build
         self.travis_trigger_error = None  # Exception when triggering travis
         self.travis_build_id = None  # Travis Build ID of the new build
+        self.travis_last_build_id = None
         self.travis_build_result = None  # travispy.entities.build.Build
 
         # set by self.set_local_build()
@@ -120,14 +121,17 @@ class BuildInfo(object):
         """
         self.travis_trigger_error = e
 
-    def set_travis_build_id(self, build_id):
+    def set_travis_build_ids(self, last_id, new_id):
         """
-        Store the ID of the triggered Travis build.
+        Store the IDs of the previous and triggered Travis builds.
 
-        :param build_id: the ID of the triggered Travis build
-        :type build_id: int
+        :param last_id: the ID of the last build before triggering
+        :type last_id: int
+        :param new_id: the ID of the triggered Travis build
+        :type new_id: int
         """
-        self.travis_build_id = build_id
+        self.travis_last_build_id = last_id
+        self.travis_build_id = new_id
 
     def set_travis_build_finished(self, build):
         """

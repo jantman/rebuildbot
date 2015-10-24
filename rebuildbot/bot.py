@@ -56,7 +56,7 @@ from boto.s3.key import Key
 from travispy.errors import TravisError
 
 from .travis import Travis
-from .exceptions import GitTokenMissingError
+from .exceptions import GitTokenMissingError, PollTimeoutException
 from .github_wrapper import GitHubWrapper
 from .buildinfo import BuildInfo
 from .local_build import LocalBuild
@@ -412,8 +412,8 @@ class ReBuildBot(object):
                 build_info.set_dry_run()
                 continue
             try:
-                res = self.travis.run_build(repo_slug)
-                build_info.set_travis_build_id(res)
+                old_id, new_id = self.travis.run_build(repo_slug)
+                build_info.set_travis_build_ids(old_id, new_id)
             except Exception as ex:
                 build_info.set_travis_trigger_error(ex)
                 logger.exception(ex)
@@ -436,7 +436,16 @@ class ReBuildBot(object):
                     build_info.travis_build_finished
             ):
                 continue
-            t_build = self.travis.get_build(build_info.travis_build_id)
+            build_id = build_info.travis_build_id
+            if build_id is None:
+                # try to fetch a new build ID
+                build_id = self.update_travis_build(build_info)
+            # if we still didn't get a new build ID...
+            if build_id is None:
+                logger.warning("Still have not gotten new Travis build ID "
+                               "for %s; skipping", repo_slug)
+                continue
+            t_build = self.travis.get_build(build_id)
             if t_build.finished:
                 logger.debug("Build %s of %s has finished; updating",
                              build_info.travis_build_id, repo_slug)
@@ -445,3 +454,26 @@ class ReBuildBot(object):
                 logger.debug("Build %s of %s still running",
                              build_info.travis_build_id, repo_slug)
         logger.debug("Completed updating Travis build status")
+
+    def update_travis_build(self, bi):
+        """
+        Given a BuildInfo object that we don't yet have a new build ID for,
+        poll Travis to attempt to get the new Build ID. If we get one (newer
+        than the last build ID), update ``bi`` with it and return it. Else,
+        return None.
+
+        :param bi: BuildInfo object to poll for
+        :type bi: :py:class:`~.BuildInfo`
+        :returns: new build ID or None
+        :rtype: int
+        """
+        try:
+            new = self.travis.wait_for_new_build(
+                bi.slug, bi.travis_last_build_id
+            )
+        except PollTimeoutException:
+            logger.exception("Still have not found new Build ID for %s",
+                             bi.slug)
+            return None
+        bi.set_travis_build_ids(bi.travis_last_build_id, new)
+        return new

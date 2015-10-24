@@ -122,7 +122,7 @@ class TestTravis(object):
             mock_wait.return_value = 2
             with patch('%s.trigger_travis' % pb) as mock_trigger:
                 res = self.cls.run_build('mylogin/reponame')
-        assert res == 2
+        assert res == (1, 2)
         assert self.mock_travis.mock_calls == [
             call.repo('mylogin/reponame')
         ]
@@ -142,12 +142,35 @@ class TestTravis(object):
             mock_wait.return_value = 2
             with patch('%s.trigger_travis' % pb) as mock_trigger:
                 res = self.cls.run_build('mylogin/reponame', branch='foo')
-        assert res == 2
+        assert res == (1, 2)
         assert self.mock_travis.mock_calls == [
             call.repo('mylogin/reponame')
         ]
         assert mock_trigger.mock_calls == [
             call('mylogin/reponame', branch='foo')
+        ]
+        assert mock_wait.mock_calls == [call('mylogin/reponame', 1)]
+
+    def test_run_build_timeout(self):
+        mock_repo = Mock(spec_set=Repo)
+        mock_build = Mock(spec_set=Build)
+        type(mock_build).id = 1
+        type(mock_repo).last_build = mock_build
+        self.mock_travis.repo.return_value = mock_repo
+
+        def wait_se(slug, old_id):
+            raise PollTimeoutException('t', 'r', 1, 2)
+
+        with patch('%s.wait_for_new_build' % pb) as mock_wait:
+            mock_wait.side_effect = wait_se
+            with patch('%s.trigger_travis' % pb) as mock_trigger:
+                res = self.cls.run_build('mylogin/reponame')
+        assert res == (1, None)
+        assert self.mock_travis.mock_calls == [
+            call.repo('mylogin/reponame')
+        ]
+        assert mock_trigger.mock_calls == [
+            call('mylogin/reponame', branch='master')
         ]
         assert mock_wait.mock_calls == [call('mylogin/reponame', 1)]
 

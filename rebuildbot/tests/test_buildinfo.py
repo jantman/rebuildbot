@@ -64,6 +64,7 @@ class TestBuildInfoInit(object):
         assert cls.run_travis is False
         assert cls.travis_trigger_error is None
         assert cls.travis_build_id is None
+        assert cls.travis_last_build_id is None
         assert cls.travis_build_result is None
         assert cls.local_build_return_code is None
         assert cls.local_build_output is None
@@ -91,6 +92,7 @@ class TestBuildInfoInit(object):
         assert cls.run_travis is False
         assert cls.travis_trigger_error is None
         assert cls.travis_build_id is None
+        assert cls.travis_last_build_id is None
         assert cls.travis_build_result is None
         assert cls.local_build_return_code is None
         assert cls.local_build_output is None
@@ -118,6 +120,7 @@ class TestBuildInfoInit(object):
         assert cls.run_travis is False
         assert cls.travis_trigger_error is None
         assert cls.travis_build_id is None
+        assert cls.travis_last_build_id is None
         assert cls.travis_build_result is None
         assert cls.local_build_return_code is None
         assert cls.local_build_output is None
@@ -174,9 +177,10 @@ class TestBuildInfo(object):
         self.cls.set_travis_trigger_error(ex)
         assert self.cls.travis_trigger_error == ex
 
-    def test_set_travis_build_id(self):
-        self.cls.set_travis_build_id(123)
-        assert self.cls.travis_build_id == 123
+    def test_set_travis_build_ids(self):
+        self.cls.set_travis_build_ids(123, 456)
+        assert self.cls.travis_last_build_id == 123
+        assert self.cls.travis_build_id == 456
 
     def test_set_travis_build_finished(self):
         bld = Mock()

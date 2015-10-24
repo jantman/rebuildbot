@@ -98,15 +98,17 @@ class Travis(object):
         """
         Trigger a Travis build of the specified repository on the specified
         branch. Wait for the build repository's latest build ID to change,
-        an then return the build ID of the triggered build, or None on error.
+        and then return a 2-tuple of the old build id and the new one.
+        If the new build has not started within the timeout interval, the
+        new build ID will be None.
 
         :param repo_slug: repository slug (<username>/<repo_name>)
         :type repo_slug: string
         :param branch: name of the branch to build
         :type branch: string
         :raises: PollTimeoutException, TravisTriggerError
-        :returns: build ID of the triggered build, or None on error
-        :rtype: int or None
+        :returns: (last build ID, new build ID)
+        :rtype: tuple
         """
         repo = self.travis.repo(repo_slug)
         logger.info("Travis Repo %s (%s): pending=%s queued=%s running=%s "
@@ -119,7 +121,11 @@ class Travis(object):
                      last_build.state, last_build.color, last_build.started_at,
                      self.url_for_build(repo_slug, last_build.id))
         self.trigger_travis(repo_slug, branch=branch)
-        return self.wait_for_new_build(repo_slug, last_build.id)
+        try:
+            new_id = self.wait_for_new_build(repo_slug, last_build.id)
+        except PollTimeoutException:
+            new_id = None
+        return (last_build.id, new_id)
 
     def wait_for_new_build(self, repo_slug, last_build_id):
         """
