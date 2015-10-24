@@ -100,75 +100,101 @@ class TestRunner(object):
                                 'to test, instead of discovering all '
                                 'possibilities. Can be specified multiple '
                                 'times.'),
+            call().add_argument('-p', '--s3-prefix', dest='s3_prefix', type=str,
+                                action='store', help='Prefix to prepend to all '
+                                'keys created in S3 (default: rebuildbot)',
+                                default='rebuildbot'),
+            call().add_argument('BUCKET_NAME', action='store', type=str,
+                                help='Name of S3 bucket to upload reports to'),
             call().parse_args([]),
         ]
 
     def test_parse_args_verbose1(self):
-        res = self.cls.parse_args(['-v'])
+        res = self.cls.parse_args(['-v', 'bktname'])
         assert res.verbose == 1
 
     def test_parse_args_verbose2(self):
-        res = self.cls.parse_args(['-vv'])
+        res = self.cls.parse_args(['-vv', 'bktname'])
         assert res.verbose == 2
 
     def test_parse_args_version(self):
-        res = self.cls.parse_args(['-V'])
+        res = self.cls.parse_args(['-V', 'bktname'])
         assert res.version is True
 
     def test_parse_args_dry_run(self):
-        res = self.cls.parse_args(['-d'])
+        res = self.cls.parse_args(['-d', 'bktname'])
         assert res.dry_run is True
 
     def test_parse_args_no_repos(self):
-        res = self.cls.parse_args(['-d'])
+        res = self.cls.parse_args(['-d', 'bktname'])
         assert res.repos is None
 
+    def test_parse_args_s3_prefix(self):
+        res = self.cls.parse_args(['--s3-prefix=foo', 'bktname'])
+        assert res.s3_prefix == 'foo'
+        assert res.BUCKET_NAME == 'bktname'
+
     def test_parse_args_one_repo(self):
-        res = self.cls.parse_args(['-R', 'foo/bar'])
+        res = self.cls.parse_args(['-R', 'foo/bar', 'bktname'])
         assert res.repos == ['foo/bar']
 
     def test_parse_args_multiple_repos(self):
-        res = self.cls.parse_args(['-R', 'foo/bar', '-R', 'baz/blam'])
+        res = self.cls.parse_args(
+            ['-R', 'foo/bar', '-R', 'baz/blam', 'bktname']
+        )
         assert res.repos == ['foo/bar', 'baz/blam']
 
     def test_console_entry_point(self):
-        argv = ['/tmp/rebuildbot/runner.py']
+        argv = ['/tmp/rebuildbot/runner.py', 'bktname']
         with patch.object(sys, 'argv', argv):
             with patch('%s.ReBuildBot' % pbm) as mock_bot, \
                  patch('%s.logger' % pbm) as mock_logger:
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
-            call(dry_run=False),
+            call('bktname', s3_prefix='rebuildbot', dry_run=False),
+            call().run(projects=None)
+        ]
+        assert mock_logger.mock_calls == []
+
+    def test_console_entry_point_prefix(self):
+        argv = ['/tmp/rebuildbot/runner.py', '-p', 'my/prefix', 'bktname']
+        with patch.object(sys, 'argv', argv):
+            with patch('%s.ReBuildBot' % pbm) as mock_bot, \
+                 patch('%s.logger' % pbm) as mock_logger:
+                self.cls.console_entry_point()
+        assert mock_bot.mock_calls == [
+            call('bktname', s3_prefix='my/prefix', dry_run=False),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
 
     def test_console_entry_point_projects(self):
-        argv = ['/tmp/rebuildbot/runner.py', '-R', 'foo/bar', '-R', 'baz/blam']
+        argv = ['/tmp/rebuildbot/runner.py', '-R', 'foo/bar', '-R', 'baz/blam',
+                'bktname']
         with patch.object(sys, 'argv', argv):
             with patch('%s.ReBuildBot' % pbm) as mock_bot, \
                  patch('%s.logger' % pbm) as mock_logger:
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
-            call(dry_run=False),
+            call('bktname', s3_prefix='rebuildbot', dry_run=False),
             call().run(projects=['foo/bar', 'baz/blam'])
         ]
         assert mock_logger.mock_calls == []
 
     def test_console_entry_point_dry_run(self):
-        argv = ['/tmp/rebuildbot/runner.py', '--dry-run']
+        argv = ['/tmp/rebuildbot/runner.py', '--dry-run', 'bktname']
         with patch.object(sys, 'argv', argv):
             with patch('%s.ReBuildBot' % pbm) as mock_bot, \
                  patch('%s.logger' % pbm) as mock_logger:
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
-            call(dry_run=True),
+            call('bktname', s3_prefix='rebuildbot', dry_run=True),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
 
     def test_console_entry_point_version(self, capsys):
-        argv = ['/tmp/rebuildbot/runner.py', '-V']
+        argv = ['/tmp/rebuildbot/runner.py', '-V', 'bktname']
         with patch.object(sys, 'argv', argv):
             with patch('%s.ReBuildBot' % pbm) as mock_bot, \
                  patch('%s.logger' % pbm) as mock_logger:
@@ -183,13 +209,13 @@ class TestRunner(object):
             '> for source code)' + "\n"
 
     def test_console_entry_point_verbose1(self):
-        argv = ['/tmp/rebuildbot/runner.py', '-v']
+        argv = ['/tmp/rebuildbot/runner.py', '-v', 'bktname']
         with patch.object(sys, 'argv', argv):
             with patch('%s.ReBuildBot' % pbm) as mock_bot, \
                  patch('%s.logger' % pbm) as mock_logger:
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
-            call(dry_run=False),
+            call('bktname', s3_prefix='rebuildbot', dry_run=False),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == [
@@ -197,7 +223,7 @@ class TestRunner(object):
         ]
 
     def test_console_entry_point_verbose2(self):
-        argv = ['/tmp/rebuildbot/runner.py', '-vv']
+        argv = ['/tmp/rebuildbot/runner.py', '-vv', 'bktname']
         with patch.object(sys, 'argv', argv):
             with patch('%s.ReBuildBot' % pbm) as mock_bot, \
                  patch('%s.logger' % pbm) as mock_logger, \
@@ -206,7 +232,7 @@ class TestRunner(object):
                 type(mock_logger).handlers = [mock_handler]
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
-            call(dry_run=False),
+            call('bktname', s3_prefix='rebuildbot', dry_run=False),
             call().run(projects=None)
         ]
 

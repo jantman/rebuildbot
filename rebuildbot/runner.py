@@ -103,6 +103,12 @@ class Runner(object):
                        'to test, instead of discovering all '
                        'possibilities. Can be specified multiple '
                        'times.')
+        p.add_argument('-p', '--s3-prefix', dest='s3_prefix', type=str,
+                       action='store', help='Prefix to prepend to all '
+                       'keys created in S3 (default: rebuildbot)',
+                       default='rebuildbot')
+        p.add_argument('BUCKET_NAME', action='store', type=str,
+                       help='Name of S3 bucket to upload reports to')
         args = p.parse_args(argv)
         return args
 
@@ -125,7 +131,8 @@ class Runner(object):
             ))
             raise SystemExit(0)
 
-        bot = ReBuildBot(dry_run=args.dry_run)
+        bot = ReBuildBot(args.BUCKET_NAME, s3_prefix=args.s3_prefix,
+                         dry_run=args.dry_run)
         bot.run(projects=args.repos)
 
 
