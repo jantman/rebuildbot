@@ -51,6 +51,8 @@ requires = [
     'PyGithub>=1.25',
     'GitPython>=1.0.1',
     'Jinja2>=2.7.0, <=2.8.0',
+    'pytz>=2014.4',
+    'tzlocal>=1.1.1, <=2.0.0',
 ]
 
 classifiers = [

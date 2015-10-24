@@ -42,6 +42,13 @@ import os
 import shutil
 import logging
 from datetime import datetime
+from platform import node as platform_node
+from getpass import getuser
+
+import pytz
+import tzlocal
+
+from jinja2 import Environment, PackageLoader
 
 import boto
 from boto.s3.key import Key
@@ -53,6 +60,7 @@ from .exceptions import GitTokenMissingError
 from .github_wrapper import GitHubWrapper
 from .buildinfo import BuildInfo
 from .local_build import LocalBuild
+from .version import _VERSION
 
 # python3 ConfigParser
 if sys.version_info[0] < 3:
@@ -170,7 +178,41 @@ class ReBuildBot(object):
         :returns: generated report HTML
         :rytpe: str
         """
-        pass
+        env = Environment(
+            loader=PackageLoader('rebuildbot', 'templates'),
+            extensions=['jinja2.ext.loopcontrols']
+        )
+        template = env.get_template('report.html')
+
+        date_s = datetime.now(pytz.utc).astimezone(tzlocal.get_localzone())
+        date_s = date_s.strftime('%Y-%m-%d %H:%M:%S%z %Z')
+
+        run_info = {
+            'version': _VERSION,
+            'date_s': date_s,
+            'host': platform_node(),
+            'user': getuser(),
+            'bucket': self.bucket.name,
+            'prefix': prefix,
+        }
+        build_infos = self.get_build_info_html_list()
+
+        html = template.render(run_info=run_info, builds=build_infos)
+        return html
+
+    def get_build_info_html_list(self):
+        """
+        Return a list of 3-tuples for builds, in sorted order, each one being
+        (build_name, travis_html, local_html).
+
+        :rtype: tuple
+        """
+        res = []
+        for name, bi in sorted(self.builds.items()):
+            res.append(
+                (name, bi.make_travis_html(), bi.make_local_build_html())
+            )
+        return res
 
     def get_s3_prefix(self):
         """
