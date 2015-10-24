@@ -47,6 +47,11 @@ from .version import _VERSION, _PROJECT_URL
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger()
 
+# suppress boto internal logging below WARNING level
+boto_log = logging.getLogger("boto")
+boto_log.setLevel(logging.WARNING)
+boto_log.propagate = True
+
 # suppress requests internal logging below WARNING level
 requests_log = logging.getLogger("requests")
 requests_log.setLevel(logging.WARNING)
