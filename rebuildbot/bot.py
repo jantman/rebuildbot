@@ -178,7 +178,7 @@ class ReBuildBot(object):
         prefix = self.get_s3_prefix()
         self.write_local_output(prefix)
         report = self.generate_report(prefix)
-        url = self.write_to_s3(prefix, 'index.html', report)
+        url = self.write_to_s3(prefix, 'index.html', report, ctype='text/html')
         logger.info("Full report written to: %s", url)
 
     def generate_report(self, prefix):
@@ -246,7 +246,7 @@ class ReBuildBot(object):
         prefix = os.path.join(self.s3_prefix, dt_str)
         return prefix
 
-    def write_to_s3(self, prefix, fname, content):
+    def write_to_s3(self, prefix, fname, content, ctype='text/plain'):
         """
         Write ``content`` into S3 at ``prefix``/``fname``. If ``self.dry_run``,
         write to local disk instead. Return the resulting URL, either an S3
@@ -276,8 +276,9 @@ class ReBuildBot(object):
         k = Key(self.bucket)
         k.key = path
         k.set_contents_from_string(content)
-        logger.debug("Data written to s3://%s/%s", self.bucket.name, path)
+        k.set_metadata('Content-Type', ctype)
         url = self.url_for_s3(path)
+        logger.debug("Data written to %s", url)
         return url
 
     def write_local_output(self, prefix):

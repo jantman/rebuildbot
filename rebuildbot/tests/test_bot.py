@@ -716,7 +716,29 @@ class TestReBuildBot(object):
         assert m_open.mock_calls == []
         assert mock_key.mock_calls == [
             call(self.mock_bucket),
-            call().set_contents_from_string('mycontent')
+            call().set_contents_from_string('mycontent'),
+            call().set_metadata('Content-Type', 'text/plain')
+        ]
+        assert mock_abspath.mock_calls == []
+        assert mock_url.mock_calls == [call('foo/bar/myfname')]
+        assert res == 'myurl'
+
+    def test_write_to_s3_html(self):
+        with \
+             patch('%s.open' % pbm, mock_open(), create=True) as m_open, \
+             patch('%s.Key' % pbm, spec_set=Key) as mock_key, \
+             patch('%s.url_for_s3' % pb) as mock_url, \
+             patch('%s.os.path.abspath' % pbm) as mock_abspath:
+            mock_url.return_value = 'myurl'
+            mock_abspath.return_value = '/basedir/foo/bar/myfname'
+            res = self.cls.write_to_s3(
+                'foo/bar', 'myfname', 'mycontent', ctype='text/html'
+            )
+        assert m_open.mock_calls == []
+        assert mock_key.mock_calls == [
+            call(self.mock_bucket),
+            call().set_contents_from_string('mycontent'),
+            call().set_metadata('Content-Type', 'text/html')
         ]
         assert mock_abspath.mock_calls == []
         assert mock_url.mock_calls == [call('foo/bar/myfname')]
@@ -794,7 +816,7 @@ class TestReBuildBot(object):
         assert mocks['write_local_output'].mock_calls == [call('s3/prefix')]
         assert mocks['generate_report'].mock_calls == [call('s3/prefix')]
         assert mocks['write_to_s3'].mock_calls == [
-            call('s3/prefix', 'index.html', 'myreport')
+            call('s3/prefix', 'index.html', 'myreport', ctype='text/html')
         ]
 
     def test_write_local_output(self):
