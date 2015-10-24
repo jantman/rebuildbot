@@ -672,13 +672,16 @@ class TestReBuildBot(object):
              patch('%s.open' % pbm, mock_open(), create=True) as m_open, \
              patch('%s.Key' % pbm, spec_set=Key) as mock_key, \
              patch('%s.url_for_s3' % pb) as mock_url, \
+             patch('%s.os.path.exists' % pbm) as mock_exists, \
+             patch('%s.os.makedirs' % pbm) as mock_makedirs, \
              patch('%s.os.path.abspath' % pbm) as mock_abspath:
             mock_url.return_value = 'myurl'
             mock_abspath.return_value = '/basedir/foo/bar/myfname'
+            mock_exists.return_value = False
             self.cls.dry_run = True
             res = self.cls.write_to_s3('foo/bar', 'myfname', 'mycontent')
         assert m_open.mock_calls == [
-            call('foo/bar/myfname', 'w'),
+            call('/basedir/foo/bar/myfname', 'w'),
             call().__enter__(),
             call().write('mycontent'),
             call().__exit__(None, None, None)
@@ -688,6 +691,36 @@ class TestReBuildBot(object):
             call('foo/bar/myfname')
         ]
         assert mock_url.mock_calls == []
+        assert mock_exists.mock_calls == [call('/basedir/foo/bar')]
+        assert mock_makedirs.mock_calls == [call('/basedir/foo/bar')]
+        assert res == 'file:///basedir/foo/bar/myfname'
+
+    def test_write_to_s3_dry_run_exists(self):
+        with \
+             patch('%s.open' % pbm, mock_open(), create=True) as m_open, \
+             patch('%s.Key' % pbm, spec_set=Key) as mock_key, \
+             patch('%s.url_for_s3' % pb) as mock_url, \
+             patch('%s.os.path.exists' % pbm) as mock_exists, \
+             patch('%s.os.makedirs' % pbm) as mock_makedirs, \
+             patch('%s.os.path.abspath' % pbm) as mock_abspath:
+            mock_url.return_value = 'myurl'
+            mock_abspath.return_value = '/basedir/foo/bar/myfname'
+            mock_exists.return_value = True
+            self.cls.dry_run = True
+            res = self.cls.write_to_s3('foo/bar', 'myfname', 'mycontent')
+        assert m_open.mock_calls == [
+            call('/basedir/foo/bar/myfname', 'w'),
+            call().__enter__(),
+            call().write('mycontent'),
+            call().__exit__(None, None, None)
+        ]
+        assert mock_key.mock_calls == []
+        assert mock_abspath.mock_calls == [
+            call('foo/bar/myfname')
+        ]
+        assert mock_url.mock_calls == []
+        assert mock_exists.mock_calls == [call('/basedir/foo/bar')]
+        assert mock_makedirs.mock_calls == []
         assert res == 'file:///basedir/foo/bar/myfname'
 
     def test_handle_results(self):

@@ -251,10 +251,14 @@ class ReBuildBot(object):
         """
         path = os.path.join(prefix, fname)
         if self.dry_run:
+            path = os.path.abspath(path)
             logger.warning("DRY RUN: Writing s3-bound content to ./%s", path)
+            dest_dir = os.path.dirname(path)
+            if not os.path.exists(dest_dir):
+                os.makedirs(dest_dir)
             with open(path, 'w') as fh:
                 fh.write(content)
-            return 'file://%s' % os.path.abspath(path)
+            return 'file://%s' % path
         # else write to S3
         logger.debug("Creating S3 key: %s", path)
         k = Key(self.bucket)
