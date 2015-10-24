@@ -42,6 +42,8 @@ import pytest
 from textwrap import dedent
 
 from boto.s3.connection import S3Connection
+from boto.s3.bucket import Bucket
+from boto.s3.key import Key
 
 from rebuildbot.bot import ReBuildBot
 from rebuildbot.travis import Travis
@@ -52,15 +54,19 @@ from rebuildbot.buildinfo import BuildInfo
 
 from travispy.errors import TravisError
 
+from freezegun import freeze_time
+
 # https://code.google.com/p/mock/issues/detail?id=249
 # py>=3.4 should use unittest.mock not the mock package on pypi
 if (
         sys.version_info[0] < 3 or
         sys.version_info[0] == 3 and sys.version_info[1] < 4
 ):
-    from mock import patch, call, Mock, mock_open, PropertyMock
+    from mock import patch, call, Mock, mock_open, PropertyMock, DEFAULT
 else:
-    from unittest.mock import patch, call, Mock, mock_open, PropertyMock
+    from unittest.mock import (
+        patch, call, Mock, mock_open, PropertyMock, DEFAULT
+    )
 
 pbm = 'rebuildbot.bot'  # patch base path for this module
 pb = 'rebuildbot.bot.ReBuildBot'  # patch base for class
@@ -75,17 +81,18 @@ class TestReBuildBotInit(object):
              patch('%s.Travis' % pbm) as mock_travis, \
              patch('%s.connect_s3' % pb) as mock_connect_s3:
             mock_get_gh_token.return_value = 'myGHtoken'
-            cls = ReBuildBot()
+            cls = ReBuildBot('mybucket')
         assert mock_get_gh_token.mock_calls == [call()]
         assert mock_gh.mock_calls == [call('myGHtoken')]
         assert mock_travis.mock_calls == [call('myGHtoken')]
-        assert mock_connect_s3.mock_calls == [call()]
+        assert mock_connect_s3.mock_calls == [call('mybucket')]
         assert cls.gh_token == 'myGHtoken'
         assert cls.github == mock_gh.return_value
         assert cls.travis == mock_travis.return_value
-        assert cls.s3 == mock_connect_s3.return_value
+        assert cls.bucket == mock_connect_s3.return_value
         assert cls.dry_run is False
         assert cls.builds == {}
+        assert cls.s3_prefix == 'rebuildbot'
 
     def test_init_dry_run(self):
         with \
@@ -94,17 +101,18 @@ class TestReBuildBotInit(object):
              patch('%s.Travis' % pbm) as mock_travis, \
              patch('%s.connect_s3' % pb) as mock_connect_s3:
             mock_get_gh_token.return_value = 'myGHtoken'
-            cls = ReBuildBot(dry_run=True)
+            cls = ReBuildBot('mybucket', s3_prefix='foo', dry_run=True)
         assert mock_get_gh_token.mock_calls == [call()]
         assert mock_gh.mock_calls == [call('myGHtoken')]
         assert mock_travis.mock_calls == [call('myGHtoken')]
-        assert mock_connect_s3.mock_calls == [call()]
+        assert mock_connect_s3.mock_calls == [call('mybucket')]
         assert cls.gh_token == 'myGHtoken'
         assert cls.github == mock_gh.return_value
         assert cls.travis == mock_travis.return_value
-        assert cls.s3 == mock_connect_s3.return_value
+        assert cls.bucket == mock_connect_s3.return_value
         assert cls.dry_run is True
         assert cls.builds == {}
+        assert cls.s3_prefix == 'foo'
 
 
 class TestReBuildBot(object):
@@ -112,16 +120,21 @@ class TestReBuildBot(object):
     def setup(self):
         self.mock_github = Mock(spec_set=GitHubWrapper)
         self.mock_travis = Mock(spec_set=Travis)
-        self.mock_s3 = Mock()
+        self.mock_bucket = Mock(spec_set=Bucket)
+        type(self.mock_bucket).name = 'bktname'
+        self.endpoint = 'bktname.s3-website-us-west-2.amazonaws.com'
+        self.mock_bucket.get_website_endpoint.return_value = self.endpoint
 
         with patch('%s.__init__' % pb, Mock(return_value=None)):
-            self.cls = ReBuildBot()
+            self.cls = ReBuildBot('bktname')
             self.cls.gh_token = 'myGHtoken'
             self.cls.github = self.mock_github
             self.cls.travis = self.mock_travis
-            self.cls.s3 = self.mock_s3
+            self.cls.bucket = self.mock_bucket
+            self.cls.bucket_endpoint = self.endpoint
             self.cls.builds = {}
             self.cls.dry_run = False
+            self.cls.s3_prefix = 's3/prefix'
 
     def test_get_github_token_env(self):
         new_env = {
@@ -322,11 +335,21 @@ class TestReBuildBot(object):
 
     def test_connect_s3(self):
         mock_conn = Mock(spec_set=S3Connection)
+        mock_bucket = Mock(spec_set=Bucket)
+        url = 'bktname.s3-website-us-west-2.amazonaws.com'
+        mock_bucket.get_website_endpoint.return_value = url
+        mock_conn.get_bucket.return_value = mock_bucket
+
         with patch('%s.boto.connect_s3' % pbm) as mock_s3:
             mock_s3.return_value = mock_conn
-            res = self.cls.connect_s3()
-        assert res == mock_conn
-        assert mock_s3.mock_calls == [call()]
+            res = self.cls.connect_s3('bktname')
+        assert res == mock_bucket
+        assert mock_s3.mock_calls == [
+            call(),
+            call().get_bucket('bktname'),
+            call().get_bucket().get_website_endpoint()
+        ]
+        assert self.cls.bucket_endpoint == url
 
     def test_run(self):
         with \
@@ -581,3 +604,132 @@ class TestReBuildBot(object):
         assert self.cls.travis.mock_calls == []
         assert build1.mock_calls == [call.set_dry_run()]
         assert build2.mock_calls == [call.set_dry_run()]
+
+    @freeze_time('2015-01-10 12:13:14')
+    def test_get_s3_prefix(self):
+        with patch('%s.os.path.exists' % pbm) as mock_exists:
+            with patch('%s.shutil.rmtree' % pbm) as mock_rmtree:
+                with patch('%s.os.mkdir' % pbm) as mock_mkdir:
+                    res = self.cls.get_s3_prefix()
+        assert mock_exists.mock_calls == []
+        assert mock_rmtree.mock_calls == []
+        assert mock_mkdir.mock_calls == []
+        assert res == 's3/prefix/2015-01-10_12-13-14'
+
+    @freeze_time('2015-01-10 12:13:14')
+    def test_get_s3_prefix_dry_run(self):
+        self.cls.dry_run = True
+        with patch('%s.os.path.exists' % pbm) as mock_exists:
+            mock_exists.return_value = True
+            with patch('%s.shutil.rmtree' % pbm) as mock_rmtree:
+                with patch('%s.os.mkdir' % pbm) as mock_mkdir:
+                    res = self.cls.get_s3_prefix()
+        assert mock_exists.mock_calls == [call('s3_content')]
+        assert mock_rmtree.mock_calls == [call('s3_content')]
+        assert mock_mkdir.mock_calls == [call('s3_content')]
+        assert res == 's3_content'
+
+    @freeze_time('2015-01-10 12:13:14')
+    def test_get_s3_prefix_dry_run_no_exist(self):
+        self.cls.dry_run = True
+        with patch('%s.os.path.exists' % pbm) as mock_exists:
+            mock_exists.return_value = False
+            with patch('%s.shutil.rmtree' % pbm) as mock_rmtree:
+                with patch('%s.os.mkdir' % pbm) as mock_mkdir:
+                    res = self.cls.get_s3_prefix()
+        assert mock_exists.mock_calls == [call('s3_content')]
+        assert mock_rmtree.mock_calls == []
+        assert mock_mkdir.mock_calls == [call('s3_content')]
+        assert res == 's3_content'
+
+    def test_url_for_s3(self):
+        res = self.cls.url_for_s3('my/path')
+        assert res == 'http://%s/my/path' % self.endpoint
+
+    def test_write_to_s3(self):
+        with \
+             patch('%s.open' % pbm, mock_open(), create=True) as m_open, \
+             patch('%s.Key' % pbm, spec_set=Key) as mock_key, \
+             patch('%s.url_for_s3' % pb) as mock_url, \
+             patch('%s.os.path.abspath' % pbm) as mock_abspath:
+            mock_url.return_value = 'myurl'
+            mock_abspath.return_value = '/basedir/foo/bar/myfname'
+            res = self.cls.write_to_s3('foo/bar', 'myfname', 'mycontent')
+        assert m_open.mock_calls == []
+        assert mock_key.mock_calls == [
+            call(self.mock_bucket),
+            call().set_contents_from_string('mycontent')
+        ]
+        assert mock_abspath.mock_calls == []
+        assert mock_url.mock_calls == [call('foo/bar/myfname')]
+        assert res == 'myurl'
+
+    def test_write_to_s3_dry_run(self):
+        with \
+             patch('%s.open' % pbm, mock_open(), create=True) as m_open, \
+             patch('%s.Key' % pbm, spec_set=Key) as mock_key, \
+             patch('%s.url_for_s3' % pb) as mock_url, \
+             patch('%s.os.path.abspath' % pbm) as mock_abspath:
+            mock_url.return_value = 'myurl'
+            mock_abspath.return_value = '/basedir/foo/bar/myfname'
+            self.cls.dry_run = True
+            res = self.cls.write_to_s3('foo/bar', 'myfname', 'mycontent')
+        assert m_open.mock_calls == [
+            call('foo/bar/myfname', 'w'),
+            call().__enter__(),
+            call().write('mycontent'),
+            call().__exit__(None, None, None)
+        ]
+        assert mock_key.mock_calls == []
+        assert mock_abspath.mock_calls == [
+            call('foo/bar/myfname')
+        ]
+        assert mock_url.mock_calls == []
+        assert res == 'file:///basedir/foo/bar/myfname'
+
+    def test_handle_results(self):
+        with patch.multiple(
+                pb,
+                get_s3_prefix=DEFAULT,
+                write_local_output=DEFAULT,
+                generate_report=DEFAULT,
+                write_to_s3=DEFAULT,
+        ) as mocks:
+            mocks['get_s3_prefix'].return_value = 's3/prefix'
+            mocks['generate_report'].return_value = 'myreport'
+            mocks['write_to_s3'].return_value = 'myurl'
+            self.cls.handle_results()
+        assert mocks['get_s3_prefix'].mock_calls == [call()]
+        assert mocks['write_local_output'].mock_calls == [call('s3/prefix')]
+        assert mocks['generate_report'].mock_calls == [call('s3/prefix')]
+        assert mocks['write_to_s3'].mock_calls == [
+            call('s3/prefix', 'index.html', 'myreport')
+        ]
+
+    def test_write_local_output(self):
+        build1 = Mock(spec_set=BuildInfo)
+        type(build1).local_build_output_str = PropertyMock(return_value='a1out')
+        build2 = Mock(spec_set=BuildInfo)
+        type(build2).local_build_output_str = PropertyMock(return_value='a2out')
+
+        self.cls.builds = {
+            'a/1': build1,
+            'a/2': build2,
+        }
+
+        def se_write(prefix, fname, content):
+            return 'url:%s:%s' % (prefix, fname)
+
+        with patch('%s.write_to_s3' % pb) as mock_write:
+            mock_write.side_effect = se_write
+            self.cls.write_local_output('my/prefix')
+        assert mock_write.mock_calls == [
+            call('my/prefix', 'a/1', 'a1out'),
+            call('my/prefix', 'a/2', 'a2out'),
+        ]
+        assert build1.mock_calls == [
+            call.set_local_build_s3_link('url:my/prefix:a/1')
+        ]
+        assert build2.mock_calls == [
+            call.set_local_build_s3_link('url:my/prefix:a/2')
+        ]

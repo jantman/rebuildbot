@@ -39,9 +39,12 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 
 import sys
 import os
+import shutil
 import logging
+from datetime import datetime
 
 import boto
+from boto.s3.key import Key
 
 from travispy.errors import TravisError
 
@@ -69,18 +72,24 @@ class ReBuildBot(object):
     Main class for ReBuildBot - this is where everything happens.
     """
 
-    def __init__(self, dry_run=False):
+    def __init__(self, bucket_name, s3_prefix='rebuildbot', dry_run=False):
         """
         Initialize ReBuildBot and attempt to connect to all external services.
 
+        :param bucket_name: the name of the S3 bucket to write results to
+        :type bucket_name: str
+        :param s3_prefix: prefix to prepend to all keys in S3 bucket
+        :type s3_prefix: str
         :param dry_run: log what would be done, and perform normal output/
           notifications, but do not actually run any tests
         :type dry_run: boolean
         """
+        self.s3_prefix = s3_prefix
         self.gh_token = self.get_github_token()
         self.github = GitHubWrapper(self.gh_token)
         self.travis = Travis(self.gh_token)
-        self.s3 = self.connect_s3()
+        self.bucket = self.connect_s3(bucket_name)
+        self.bucket_endpoint = None
         self.dry_run = dry_run
         """mapping of repository slugs to BuildInfo objects"""
         self.builds = {}
@@ -146,7 +155,99 @@ class ReBuildBot(object):
         Once all builds are complete, collect the results, upload the relevant
         information to S3, and then build the final report and send it.
         """
+        prefix = self.get_s3_prefix()
+        self.write_local_output(prefix)
+        report = self.generate_report(prefix)
+        url = self.write_to_s3(prefix, 'index.html', report)
+        logger.info("Full report written to: %s", url)
+
+    def generate_report(self, prefix):
+        """
+        Generate the overall HTML report for this run.
+
+        :param prefix: the prefix to write S3 files under, or local files under
+        :type prefix: str
+        :returns: generated report HTML
+        :rytpe: str
+        """
         pass
+
+    def get_s3_prefix(self):
+        """
+        Return the full prefix to use for objects in S3.
+
+        :returns: full prefix to use for objects in S3
+        :rtype: str
+        """
+        if self.dry_run:
+            logger.warning("DRY RUN: Not uploading to S3; files will be written"
+                           " locally under './s3_content/'")
+            if os.path.exists('s3_content'):
+                logger.info("Removing ./s3_content")
+                shutil.rmtree('s3_content')
+            logger.info("Creating directory ./s3_content")
+            os.mkdir('s3_content')
+            return 's3_content'
+        dt_str = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        prefix = os.path.join(self.s3_prefix, dt_str)
+        return prefix
+
+    def write_to_s3(self, prefix, fname, content):
+        """
+        Write ``content`` into S3 at ``prefix``/``fname``. If ``self.dry_run``,
+        write to local disk instead. Return the resulting URL, either an S3
+        URL or a local 'file://' URL.
+
+        :param prefix: the prefix to write S3 files under, or local files under
+        :type prefix: str
+        :param fname: the file name to create
+        :type fname: str
+        :param content: the content to write into the file
+        :type content: str
+        :returns: URL to the created file
+        :rtype: str
+        """
+        path = os.path.join(prefix, fname)
+        if self.dry_run:
+            logger.warning("DRY RUN: Writing s3-bound content to ./%s", path)
+            with open(path, 'w') as fh:
+                fh.write(content)
+            return 'file://%s' % os.path.abspath(path)
+        # else write to S3
+        logger.debug("Creating S3 key: %s", path)
+        k = Key(self.bucket)
+        k.key = path
+        k.set_contents_from_string(content)
+        logger.debug("Data written to s3://%s/%s", self.bucket.name, path)
+        url = self.url_for_s3(path)
+        return url
+
+    def write_local_output(self, prefix):
+        """
+        Write output for all local builds to S3 (or local filesystem if dry_run)
+        under ``prefix``.
+
+        :param prefix: the prefix to write S3 files under, or local files under
+        :type prefix: str
+        :rtype: None
+        """
+        for proj_name, build_obj in sorted(self.builds.items()):
+            content = build_obj.local_build_output_str
+            logger.debug("Writing local output to S3 for %s", proj_name)
+            url = self.write_to_s3(prefix, proj_name, content)
+            build_obj.set_local_build_s3_link(url)
+
+    def url_for_s3(self, path):
+        """
+        Given a path to a key in ``self.bucket``, return the URL to that path.
+
+        :param path: a key path in S3
+        :type path: str
+        :returns: HTTP URL to path
+        :rtype: str
+        """
+        u = 'http://%s/%s' % (self.bucket_endpoint, path)
+        return u
 
     def find_projects(self, projects):
         """
@@ -196,15 +297,22 @@ class ReBuildBot(object):
             builds[project] = tmp_build
         return builds
 
-    def connect_s3(self):
+    def connect_s3(self, bucket_name):
         """
-        Connect to Amazon S3 via :py:func:`boto.connect_s3` and return the
-        connection object.
+        Connect to Amazon S3 via :py:func:`boto.connect_s3` and get a Bucket
+        object for ``bucket_name``; return the Bucket.
 
-        :rtype: :py:class:`boto.s3.connection.S3Connection`
+        :param bucket_name: the name of the S3 bucket to write results to
+        :type bucket_name: str
+        :rtype: :py:class:`boto.s3.bucket.Bucket`
         """
+        logger.debug("Connecting to S3")
         conn = boto.connect_s3()
-        return conn
+        logger.debug("Getting S3 bucket %s", bucket_name)
+        bucket = conn.get_bucket(bucket_name)
+        logger.debug("Got bucket")
+        self.bucket_endpoint = bucket.get_website_endpoint()
+        return bucket
 
     def get_github_token(self):
         """
