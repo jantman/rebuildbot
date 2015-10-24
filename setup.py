@@ -50,6 +50,7 @@ requires = [
     'python-dateutil>=2.4.2',
     'PyGithub>=1.25',
     'GitPython>=1.0.1',
+    'Jinja2>=2.7.0, <=2.8.0',
 ]
 
 classifiers = [
