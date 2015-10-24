@@ -124,6 +124,8 @@ class Travis(object):
         try:
             new_id = self.wait_for_new_build(repo_slug, last_build.id)
         except PollTimeoutException:
+            logger.warning("Could not find new build ID for %s within timeout;"
+                           " will poll later." % repo_slug)
             new_id = None
         return (last_build.id, new_id)
 

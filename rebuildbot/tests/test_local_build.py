@@ -97,7 +97,7 @@ class TestLocalBuild(object):
             ]
             self.cls.run()
         assert mock_clone.mock_calls == [call()]
-        assert mock_run.mock_calls == [call()]
+        assert mock_run.mock_calls == [call('/my/clone/path')]
         assert self.bi.mock_calls == [
             call.set_local_build(return_code=0, output='my output',
                                  duration=timedelta(hours=1))
@@ -145,7 +145,7 @@ class TestLocalBuild(object):
     def test_run_subprocess_error(self):
         ex_t, ex, tb = self.make_exc_info(True)
 
-        def se_ex():
+        def se_ex(foo):
             raise ex
 
         with patch('%s.clone_repo' % pb) as mock_clone, \
@@ -162,7 +162,7 @@ class TestLocalBuild(object):
             mock_excinfo.return_value = ex_t, ex, tb
             self.cls.run()
         assert mock_clone.mock_calls == [call()]
-        assert mock_run.mock_calls == [call()]
+        assert mock_run.mock_calls == [call('/my/clone/path')]
         assert self.bi.mock_calls == [
             call.set_local_build(excinfo=ex, output='my out', return_code=4,
                                  ex_type=ex_t, traceback=tb)
@@ -172,7 +172,7 @@ class TestLocalBuild(object):
     def test_run_other_exception(self):
         ex_t, ex, tb = self.make_exc_info()
 
-        def se_ex():
+        def se_ex(foo):
             raise ex
 
         with patch('%s.clone_repo' % pb) as mock_clone, \
@@ -189,7 +189,7 @@ class TestLocalBuild(object):
             mock_excinfo.return_value = ex_t, ex, tb
             self.cls.run()
         assert mock_clone.mock_calls == [call()]
-        assert mock_run.mock_calls == [call()]
+        assert mock_run.mock_calls == [call('/my/clone/path')]
         assert self.bi.mock_calls == [
             call.set_local_build(excinfo=ex, ex_type=ex_t, traceback=tb)
         ]

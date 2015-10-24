@@ -41,6 +41,7 @@ import sys
 import os
 import shutil
 import logging
+import time
 from datetime import datetime
 from platform import node as platform_node
 from getpass import getuser
@@ -142,12 +143,18 @@ class ReBuildBot(object):
         modules, which spin up VirtualBox machines, I only want one running
         at a time.
         """
-        self.poll_travis_updates()
+        travis_updates = self.poll_travis_updates()
+        ran_local = False
         for name, bi in sorted(self.builds.items()):
             if bi.run_local and bi.local_build_finished is False:
                 b = LocalBuild(name, bi, dry_run=self.dry_run)
                 b.run()
-                return
+                ran_local = True
+                break
+        if not ran_local and not travis_updates:
+            logger.info("No Travis builds updated and no local builds to run; "
+                        "sleeping 10 seconds")
+            time.sleep(10)
 
     @property
     def have_work_to_do(self):
@@ -425,7 +432,10 @@ class ReBuildBot(object):
         """
         For all Travis builds that have not yet completed, poll TravisCI to
         check if they've finished, and if so, update the BuildInfo object.
+
+        Return True if anything changed, False otherwise.
         """
+        have_changes = False
         logger.debug("Polling for Travis updates")
         for repo_slug, build_info in sorted(self.builds.items()):
             if self.dry_run:
@@ -440,20 +450,25 @@ class ReBuildBot(object):
             if build_id is None:
                 # try to fetch a new build ID
                 build_id = self.update_travis_build(build_info)
-            # if we still didn't get a new build ID...
-            if build_id is None:
-                logger.warning("Still have not gotten new Travis build ID "
-                               "for %s; skipping", repo_slug)
-                continue
+                # if we still didn't get a new build ID...
+                if build_id is None:
+                    logger.warning("Still have not gotten new Travis build ID "
+                                   "for %s; skipping", repo_slug)
+                    continue
+                else:
+                    have_changes = True
             t_build = self.travis.get_build(build_id)
             if t_build.finished:
                 logger.debug("Build %s of %s has finished; updating",
                              build_info.travis_build_id, repo_slug)
                 build_info.set_travis_build_finished(t_build)
+                have_changes = True
             else:
                 logger.debug("Build %s of %s still running",
                              build_info.travis_build_id, repo_slug)
-        logger.debug("Completed updating Travis build status")
+        logger.debug("Completed updating Travis build status; have_changes=%s",
+                     have_changes)
+        return have_changes
 
     def update_travis_build(self, bi):
         """
@@ -467,6 +482,8 @@ class ReBuildBot(object):
         :returns: new build ID or None
         :rtype: int
         """
+        logger.debug("Checking for new build ID for %s (last ID %s)",
+                     bi.slug, bi.travis_last_build_id)
         try:
             new = self.travis.wait_for_new_build(
                 bi.slug, bi.travis_last_build_id

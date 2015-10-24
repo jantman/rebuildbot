@@ -510,13 +510,16 @@ class TestReBuildBot(object):
             'me/blam': build4,
         }
         with patch('%s.poll_travis_updates' % pb) as mock_poll_travis, \
+                patch('%s.time.sleep' % pbm) as mock_sleep, \
                 patch('%s.LocalBuild' % pbm) as mock_local_build:
+            mock_poll_travis.return_value = True
             self.cls.runner_loop()
         assert mock_poll_travis.mock_calls == [call()]
         assert mock_local_build.mock_calls == [
             call('me/baz', build3, dry_run=False),
             call().run()
         ]
+        assert mock_sleep.mock_calls == []
 
     def test_runner_loop_dry_run(self):
         self.cls.dry_run = True
@@ -529,13 +532,16 @@ class TestReBuildBot(object):
             'me/foo': build1,
         }
         with patch('%s.poll_travis_updates' % pb) as mock_poll_travis, \
+                patch('%s.time.sleep' % pbm) as mock_sleep, \
                 patch('%s.LocalBuild' % pbm) as mock_local_build:
+            mock_poll_travis.return_value = True
             self.cls.runner_loop()
         assert mock_poll_travis.mock_calls == [call()]
         assert mock_local_build.mock_calls == [
             call('me/foo', build1, dry_run=True),
             call().run()
         ]
+        assert mock_sleep.mock_calls == []
 
     def test_runner_loop_no_local(self):
         build1 = Mock(spec_set=BuildInfo)
@@ -546,10 +552,13 @@ class TestReBuildBot(object):
             'me/foo': build1,
         }
         with patch('%s.poll_travis_updates' % pb) as mock_poll_travis, \
+                patch('%s.time.sleep' % pbm) as mock_sleep, \
                 patch('%s.LocalBuild' % pbm) as mock_local_build:
+            mock_poll_travis.return_value = False
             self.cls.runner_loop()
         assert mock_poll_travis.mock_calls == [call()]
         assert mock_local_build.mock_calls == []
+        assert mock_sleep.mock_calls == [call(10)]
 
     def test_poll_travis_updates(self):
         build1 = Mock(spec_set=BuildInfo)
@@ -616,8 +625,9 @@ class TestReBuildBot(object):
 
         with patch('%s.update_travis_build' % pb) as mock_update:
             mock_update.side_effect = se_update
-            self.cls.poll_travis_updates()
+            res = self.cls.poll_travis_updates()
 
+        assert res is True
         assert self.cls.travis.mock_calls == [
             call.get_build(123),
             call.get_build(456),
