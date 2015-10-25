@@ -284,12 +284,13 @@ class TestBuildInfo(object):
 
     def test_local_build_output_str(self):
         self.cls.local_build_output = 'my output'
+        self.cls.slug = 'foo/bar'
         self.cls.local_build_return_code = 3
         self.cls.local_build_start = datetime(2015, 1, 1, 0, 0, 0)
         self.cls.local_build_end = datetime(2015, 1, 1, 1, 2, 3)
         self.cls.local_build_duration = timedelta(hours=1, minutes=2, seconds=3)
         res = self.cls.local_build_output_str
-        expected = "=> Build starts at 2015-01-01 00:00:00\n" \
+        expected = "=> Build of foo/bar starts at 2015-01-01 00:00:00\n" \
                    "my output\n\n" \
                    "=> Build ends at 2015-01-01 01:02:03\n" \
                    "==> Build exited 3 in 1:02:03"

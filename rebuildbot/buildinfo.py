@@ -230,7 +230,8 @@ class BuildInfo(object):
         end_str = ''
         time_str = ''
         if self.local_build_start is not None:
-            start_str = "=> Build starts at {d}\n".format(
+            start_str = "=> Build of {s} starts at {d}\n".format(
+                s=self.slug,
                 d=self.local_build_start.strftime('%Y-%m-%d %H:%M:%S')
             )
         if self.local_build_end is not None:
