@@ -230,7 +230,9 @@ class BuildInfo(object):
 
         :rtype: str
         """
-        s = '<span class=".{icon}"> </span>'.format(icon=self.travis_build_icon)
+        s = '<span class="icon {icon}">&nbsp;</span>'.format(
+            icon=self.travis_build_icon
+        )
         s += '<a href="{url}">#{num}</a> ran in {d}'.format(
             url=self.travis_build_url,
             num=self.travis_build_number,
@@ -272,7 +274,11 @@ class BuildInfo(object):
 
         :rtype: str
         """
-        s = '<span class=".{icon}"> </span>'.format(icon=self.local_build_icon)
+        if not self.run_local:
+            return '&nbsp;'
+        s = '<span class="icon {icon}">&nbsp;</span>'.format(
+            icon=self.local_build_icon
+        )
         s += '<a href="{url}">Local Build</a> ran in {d}'.format(
             url=self.local_build_s3_link,
             d=self.local_build_duration

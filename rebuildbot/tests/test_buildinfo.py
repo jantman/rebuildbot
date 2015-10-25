@@ -283,9 +283,9 @@ class TestBuildInfo(object):
         self.cls.travis_build_duration = 1057  # 0:17:37
         with patch('%s.travis_build_icon' % pb,
                    new_callable=PropertyMock) as mock_icon:
-            mock_icon.return_value = 'icon'
+            mock_icon.return_value = 'foo'
             res = self.cls.make_travis_html()
-        expected = '<span class=".icon"> </span>'
+        expected = '<span class="icon foo">&nbsp;</span>'
         expected += '<a href="myurl">#123</a> ran in 0:17:37'
         assert res == expected
 
@@ -322,11 +322,16 @@ class TestBuildInfo(object):
         assert self.cls.local_build_icon == 'icon_failed'
 
     def test_make_local_build_html(self):
+        self.cls.run_local = True
         self.cls.local_build_s3_link = 's3link'
         self.cls.local_build_duration = timedelta(hours=1, minutes=2, seconds=3)
         with patch('%s.local_build_icon' % pb,
                    new_callable=PropertyMock) as mock_icon:
-            mock_icon.return_value = 'icon'
+            mock_icon.return_value = 'bar'
             res = self.cls.make_local_build_html()
-        assert res == '<span class=".icon"> </span><a href="s3link">Local ' \
-            'Build</a> ran in 1:02:03'
+        assert res == '<span class="icon bar">&nbsp;</span>' \
+            '<a href="s3link">Local Build</a> ran in 1:02:03'
+
+    def test_make_local_build_html_run_local_false(self):
+        self.cls.run_local = False
+        assert self.cls.make_local_build_html() == '&nbsp;'
