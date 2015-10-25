@@ -282,11 +282,11 @@ class ReBuildBot(object):
                 fh.write(content)
             return 'file://%s' % path
         # else write to S3
-        logger.debug("Creating S3 key: %s", path)
+        logger.debug("Creating S3 key: %s (Content-Type: %s)", path, ctype)
         k = Key(self.bucket)
+        k.content_type = ctype
         k.key = path
         k.set_contents_from_string(content)
-        k.set_metadata('Content-Type', ctype)
         url = self.url_for_s3(path)
         logger.debug("Data written to %s", url)
         return url

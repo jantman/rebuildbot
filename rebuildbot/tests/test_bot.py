@@ -723,7 +723,7 @@ class TestReBuildBot(object):
     def test_write_to_s3(self):
         with \
              patch('%s.open' % pbm, mock_open(), create=True) as m_open, \
-             patch('%s.Key' % pbm, spec_set=Key) as mock_key, \
+             patch('%s.Key' % pbm, spec=Key) as mock_key, \
              patch('%s.url_for_s3' % pb) as mock_url, \
              patch('%s.os.path.abspath' % pbm) as mock_abspath:
             mock_url.return_value = 'myurl'
@@ -732,17 +732,17 @@ class TestReBuildBot(object):
         assert m_open.mock_calls == []
         assert mock_key.mock_calls == [
             call(self.mock_bucket),
-            call().set_contents_from_string('mycontent'),
-            call().set_metadata('Content-Type', 'text/plain')
+            call().set_contents_from_string('mycontent')
         ]
         assert mock_abspath.mock_calls == []
         assert mock_url.mock_calls == [call('foo/bar/myfname')]
+        assert mock_key.return_value.content_type == 'text/plain'
         assert res == 'myurl'
 
     def test_write_to_s3_html(self):
         with \
              patch('%s.open' % pbm, mock_open(), create=True) as m_open, \
-             patch('%s.Key' % pbm, spec_set=Key) as mock_key, \
+             patch('%s.Key' % pbm, spec=Key) as mock_key, \
              patch('%s.url_for_s3' % pb) as mock_url, \
              patch('%s.os.path.abspath' % pbm) as mock_abspath:
             mock_url.return_value = 'myurl'
@@ -753,11 +753,11 @@ class TestReBuildBot(object):
         assert m_open.mock_calls == []
         assert mock_key.mock_calls == [
             call(self.mock_bucket),
-            call().set_contents_from_string('mycontent'),
-            call().set_metadata('Content-Type', 'text/html')
+            call().set_contents_from_string('mycontent')
         ]
         assert mock_abspath.mock_calls == []
         assert mock_url.mock_calls == [call('foo/bar/myfname')]
+        assert mock_key.return_value.content_type == 'text/html'
         assert res == 'myurl'
 
     def test_write_to_s3_dry_run(self):
