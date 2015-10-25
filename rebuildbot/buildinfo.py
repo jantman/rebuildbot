@@ -80,6 +80,8 @@ class BuildInfo(object):
         self.local_build_ex_type = None
         self.local_build_traceback = None
         self.local_build_finished = False
+        self.local_build_start = None
+        self.local_build_end = None
         self.local_build_duration = None
         self.local_build_s3_link = None
 
@@ -150,7 +152,8 @@ class BuildInfo(object):
         self.travis_build_finished = True
 
     def set_local_build(self, return_code=None, output=None, excinfo=None,
-                        ex_type=None, traceback=None, duration=None):
+                        ex_type=None, traceback=None, start_dt=None,
+                        end_dt=None):
         """
         When a local build is finished, update with its return code and
         output string.
@@ -165,8 +168,10 @@ class BuildInfo(object):
         :type traceback: traceback
         :param ex_type: the exception type
         :type ex_type: type
-        :param duration: duration of the build (excluding git clone)
-        :type duration: datetime.timedelta
+        :param start_dt: DateTime of build start
+        :type start_dt: datetime.datetime
+        :param end_dt: DateTime of build end
+        :type end_dt: datetime.datetime
         """
         self.local_build_return_code = return_code
         self.local_build_output = output
@@ -174,7 +179,10 @@ class BuildInfo(object):
         self.local_build_ex_type = ex_type
         self.local_build_traceback = traceback
         self.local_build_finished = True
-        self.local_build_duration = duration
+        self.local_build_start = start_dt
+        self.local_build_end = end_dt
+        if start_dt is not None and end_dt is not None:
+            self.local_build_duration = end_dt - start_dt
 
     def set_local_build_s3_link(self, link):
         """
@@ -218,10 +226,25 @@ class BuildInfo(object):
                     self.local_build_ex_type, self.local_build_exception,
                     self.local_build_traceback
                 ))
-        return "{o}\n\n=> Build exited {r} in {d}".format(
+        start_str = ''
+        end_str = ''
+        time_str = ''
+        if self.local_build_start is not None:
+            start_str = "=> Build starts at {d}\n".format(
+                d=self.local_build_start.strftime('%Y-%m-%d %H:%M:%S')
+            )
+        if self.local_build_end is not None:
+            end_str = "=> Build ends at {d}\n".format(
+                d=self.local_build_end.strftime('%Y-%m-%d %H:%M:%S')
+            )
+        if self.local_build_duration is not None:
+            time_str = " in %s" % self.local_build_duration
+        return "{s}{o}\n\n{e}==> Build exited {r}{t}".format(
             o=self.local_build_output,
             r=self.local_build_return_code,
-            d=self.local_build_duration
+            t=time_str,
+            s=start_str,
+            e=end_str
         )
 
     def make_travis_html(self):

@@ -87,9 +87,8 @@ class LocalBuild(object):
         try:
             start = self.get_time()
             output = self.run_build(repo_path)
-            duration = self.get_time() - start
             return_code = 0
-            logger.debug("Local build completed in %s", duration)
+            logger.debug("Local build completed.")
         except subprocess.CalledProcessError as ex:
             logger.exception("Subprocess exception while running local build "
                              "of %s", self.repo_name)
@@ -99,7 +98,9 @@ class LocalBuild(object):
                 output=ex.output,
                 return_code=ex.returncode,
                 ex_type=ex_type,
-                traceback=tb
+                traceback=tb,
+                start_dt=start,
+                end_dt=self.get_time()
             )
             logger.debug("shutil.rmtree(%s)", repo_path)
             rmtree(repo_path)
@@ -109,12 +110,13 @@ class LocalBuild(object):
                              "of %s", self.repo_name)
             ex_type, ex, tb = sys.exc_info()
             self.build_info.set_local_build(excinfo=ex, ex_type=ex_type,
-                                            traceback=tb)
+                                            traceback=tb, start_dt=start,
+                                            end_dt=self.get_time())
             logger.debug("shutil.rmtree(%s)", repo_path)
             rmtree(repo_path)
             return
         self.build_info.set_local_build(return_code=return_code, output=output,
-                                        duration=duration)
+                                        start_dt=start, end_dt=self.get_time())
         logger.debug("shutil.rmtree(%s)", repo_path)
         rmtree(repo_path)
 

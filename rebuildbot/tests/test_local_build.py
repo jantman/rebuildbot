@@ -42,7 +42,7 @@ import subprocess
 import pytest
 from rebuildbot.local_build import LocalBuild
 from rebuildbot.buildinfo import BuildInfo
-from datetime import (timedelta, datetime)
+from datetime import datetime
 
 from freezegun import freeze_time
 from freezegun.api import FakeDatetime
@@ -100,7 +100,8 @@ class TestLocalBuild(object):
         assert mock_run.mock_calls == [call('/my/clone/path')]
         assert self.bi.mock_calls == [
             call.set_local_build(return_code=0, output='my output',
-                                 duration=timedelta(hours=1))
+                                 start_dt=datetime(2015, 1, 1, 1, 0, 0),
+                                 end_dt=datetime(2015, 1, 1, 2, 0, 0))
         ]
         assert mock_rmtree.mock_calls == [call('/my/clone/path')]
 
@@ -165,7 +166,9 @@ class TestLocalBuild(object):
         assert mock_run.mock_calls == [call('/my/clone/path')]
         assert self.bi.mock_calls == [
             call.set_local_build(excinfo=ex, output='my out', return_code=4,
-                                 ex_type=ex_t, traceback=tb)
+                                 ex_type=ex_t, traceback=tb,
+                                 start_dt=datetime(2015, 1, 1, 1, 0, 0),
+                                 end_dt=datetime(2015, 1, 1, 2, 0, 0))
         ]
         assert mock_rmtree.mock_calls == [call('/my/clone/path')]
 
@@ -191,7 +194,9 @@ class TestLocalBuild(object):
         assert mock_clone.mock_calls == [call()]
         assert mock_run.mock_calls == [call('/my/clone/path')]
         assert self.bi.mock_calls == [
-            call.set_local_build(excinfo=ex, ex_type=ex_t, traceback=tb)
+            call.set_local_build(excinfo=ex, ex_type=ex_t, traceback=tb,
+                                 start_dt=datetime(2015, 1, 1, 1, 0, 0),
+                                 end_dt=datetime(2015, 1, 1, 2, 0, 0))
         ]
         assert mock_rmtree.mock_calls == [call('/my/clone/path')]
 

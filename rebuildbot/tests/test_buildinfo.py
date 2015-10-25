@@ -39,7 +39,7 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 
 import sys
 import traceback
-from datetime import timedelta
+from datetime import (datetime, timedelta)
 from rebuildbot.buildinfo import BuildInfo
 
 if (
@@ -72,6 +72,8 @@ class TestBuildInfoInit(object):
         assert cls.local_build_ex_type is None
         assert cls.local_build_traceback is None
         assert cls.local_build_finished is False
+        assert cls.local_build_start is None
+        assert cls.local_build_end is None
         assert cls.local_build_duration is None
         assert cls.local_build_s3_link is None
         assert cls.run_local is False
@@ -100,6 +102,8 @@ class TestBuildInfoInit(object):
         assert cls.local_build_ex_type is None
         assert cls.local_build_traceback is None
         assert cls.local_build_finished is False
+        assert cls.local_build_start is None
+        assert cls.local_build_end is None
         assert cls.local_build_duration is None
         assert cls.local_build_s3_link is None
         assert cls.run_local is True
@@ -128,6 +132,8 @@ class TestBuildInfoInit(object):
         assert cls.local_build_ex_type is None
         assert cls.local_build_traceback is None
         assert cls.local_build_finished is False
+        assert cls.local_build_start is None
+        assert cls.local_build_end is None
         assert cls.local_build_duration is None
         assert cls.local_build_s3_link is None
         assert cls.run_local is False
@@ -206,12 +212,27 @@ class TestBuildInfo(object):
         ]
 
     def test_set_local_build(self):
-        self.cls.set_local_build(return_code=2, output='myoutput', duration=1)
+        self.cls.set_local_build(return_code=2, output='myoutput')
         assert self.cls.local_build_return_code == 2
         assert self.cls.local_build_output == 'myoutput'
         assert self.cls.local_build_exception is None
         assert self.cls.local_build_finished is True
-        assert self.cls.local_build_duration == 1
+        assert self.cls.local_build_duration is None
+        assert self.cls.local_build_start is None
+        assert self.cls.local_build_end is None
+
+    def test_set_local_build_duration(self):
+        s = datetime(2015, 1, 1, 1, 10, 11)
+        e = datetime(2015, 1, 1, 1, 12, 11)
+        self.cls.set_local_build(return_code=2, output='myoutput', start_dt=s,
+                                 end_dt=e)
+        assert self.cls.local_build_return_code == 2
+        assert self.cls.local_build_output == 'myoutput'
+        assert self.cls.local_build_exception is None
+        assert self.cls.local_build_finished is True
+        assert self.cls.local_build_start == s
+        assert self.cls.local_build_end == e
+        assert self.cls.local_build_duration == timedelta(0, 120)
 
     def test_set_local_build_exception(self):
         ex = Exception("foo")
@@ -240,6 +261,8 @@ class TestBuildInfo(object):
         assert self.cls.local_build_ex_type is None
         assert self.cls.local_build_traceback is None
         assert self.cls.local_build_finished is False
+        assert self.cls.local_build_start is None
+        assert self.cls.local_build_end is None
         assert self.cls.local_build_duration is None
         assert self.cls.local_build_s3_link is None
         assert self.cls.run_local is True
@@ -252,12 +275,25 @@ class TestBuildInfo(object):
         assert self.cls.travis_build_url == '#'
         assert self.cls.travis_build_finished is True
 
+    def test_local_build_output_str_no_duration(self):
+        self.cls.local_build_output = 'my output'
+        self.cls.local_build_return_code = 3
+        self.cls.local_build_duration = None
+        res = self.cls.local_build_output_str
+        assert res == "my output\n\n==> Build exited 3"
+
     def test_local_build_output_str(self):
         self.cls.local_build_output = 'my output'
         self.cls.local_build_return_code = 3
+        self.cls.local_build_start = datetime(2015, 1, 1, 0, 0, 0)
+        self.cls.local_build_end = datetime(2015, 1, 1, 1, 2, 3)
         self.cls.local_build_duration = timedelta(hours=1, minutes=2, seconds=3)
         res = self.cls.local_build_output_str
-        assert res == "my output\n\n=> Build exited 3 in 1:02:03"
+        expected = "=> Build starts at 2015-01-01 00:00:00\n" \
+                   "my output\n\n" \
+                   "=> Build ends at 2015-01-01 01:02:03\n" \
+                   "==> Build exited 3 in 1:02:03"
+        assert res == expected
 
     def test_local_build_output_str_exception(self):
         # get an exception with a traceback
