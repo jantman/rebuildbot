@@ -248,11 +248,11 @@ class BuildInfo(object):
         :rtype: str
         """
         if self.travis_build_state in ['canceled', 'errored']:
-            return 'icon_errored'
+            return 'errored'
         if self.travis_build_state == 'failed':
-            return 'icon_failed'
+            return 'failed'
         if self.travis_build_state == 'passed':
-            return 'icon_passed'
+            return 'passed'
         return ''
 
     @property
@@ -263,10 +263,10 @@ class BuildInfo(object):
         :rtype: str
         """
         if self.local_build_exception is not None:
-            return 'icon_errored'
+            return 'errored'
         if self.local_build_return_code == 0:
-            return 'icon_passed'
-        return 'icon_failed'
+            return 'passed'
+        return 'failed'
 
     def make_local_build_html(self):
         """

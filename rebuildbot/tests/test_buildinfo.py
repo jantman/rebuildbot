@@ -291,19 +291,19 @@ class TestBuildInfo(object):
 
     def test_travis_build_icon_canceled(self):
         self.cls.travis_build_state = 'canceled'
-        assert self.cls.travis_build_icon == 'icon_errored'
+        assert self.cls.travis_build_icon == 'errored'
 
     def test_travis_build_icon_errored(self):
         self.cls.travis_build_state = 'errored'
-        assert self.cls.travis_build_icon == 'icon_errored'
+        assert self.cls.travis_build_icon == 'errored'
 
     def test_travis_build_icon_failed(self):
         self.cls.travis_build_state = 'failed'
-        assert self.cls.travis_build_icon == 'icon_failed'
+        assert self.cls.travis_build_icon == 'failed'
 
     def test_travis_build_icon_passed(self):
         self.cls.travis_build_state = 'passed'
-        assert self.cls.travis_build_icon == 'icon_passed'
+        assert self.cls.travis_build_icon == 'passed'
 
     def test_travis_build_icon_other(self):
         self.cls.travis_build_state = 'foo'
@@ -311,15 +311,15 @@ class TestBuildInfo(object):
 
     def test_local_build_icon_exception(self):
         self.cls.local_build_exception = Mock()
-        assert self.cls.local_build_icon == 'icon_errored'
+        assert self.cls.local_build_icon == 'errored'
 
     def test_local_build_icon_passed(self):
         self.cls.local_build_return_code = 0
-        assert self.cls.local_build_icon == 'icon_passed'
+        assert self.cls.local_build_icon == 'passed'
 
     def test_local_build_icon_failed(self):
         self.cls.local_build_return_code = 4
-        assert self.cls.local_build_icon == 'icon_failed'
+        assert self.cls.local_build_icon == 'failed'
 
     def test_make_local_build_html(self):
         self.cls.run_local = True
