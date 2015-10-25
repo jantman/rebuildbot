@@ -102,8 +102,8 @@ class ReBuildBot(object):
         self.gh_token = self.get_github_token()
         self.github = GitHubWrapper(self.gh_token)
         self.travis = Travis(self.gh_token)
-        self.bucket = self.connect_s3(bucket_name)
         self.bucket_endpoint = None
+        self.bucket = self.connect_s3(bucket_name)
         self.dry_run = dry_run
         """mapping of repository slugs to BuildInfo objects"""
         self.builds = {}
@@ -317,8 +317,8 @@ class ReBuildBot(object):
         :returns: HTTP URL to path
         :rtype: str
         """
-        u = 'http://%s/%s' % (self.bucket_endpoint, path)
-        return u
+        url = 'http://%s/%s' % (self.bucket_endpoint, path)
+        return url
 
     def find_projects(self, projects):
         """
