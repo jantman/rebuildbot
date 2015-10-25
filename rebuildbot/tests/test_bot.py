@@ -373,8 +373,8 @@ class TestReBuildBot(object):
              patch('%s.handle_results' % pb) as mock_handle_results:
             mock_have_work.side_effect = [True, True, False]
             mock_dt_now.side_effect = [
-                datetime(2015, 10, 20, 20, 00, 00),
-                datetime(2015, 10, 20, 20, 02, 23)
+                datetime(2015, 10, 20, 20, 0, 0),
+                datetime(2015, 10, 20, 20, 2, 23)
             ]
             self.cls.run()
         assert mock_find.mock_calls == [call(None)]
@@ -397,8 +397,8 @@ class TestReBuildBot(object):
              patch('%s.handle_results' % pb) as mock_handle_results:
             mock_have_work.return_value = False
             mock_dt_now.side_effect = [
-                datetime(2015, 10, 20, 20, 00, 00),
-                datetime(2015, 10, 20, 20, 02, 23)
+                datetime(2015, 10, 20, 20, 0, 0),
+                datetime(2015, 10, 20, 20, 2, 23)
             ]
             self.cls.run(['foo/bar', 'baz/blam'])
         assert mock_find.mock_calls == [call(['foo/bar', 'baz/blam'])]
