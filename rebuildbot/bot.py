@@ -206,6 +206,7 @@ class ReBuildBot(object):
             'user': getuser(),
             'bucket': self.bucket.name,
             'prefix': prefix,
+            'dry_run': self.dry_run,
         }
         build_infos = self.get_build_info_html_list()
 
