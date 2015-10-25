@@ -291,6 +291,8 @@ class ReBuildBot(object):
         :rtype: None
         """
         for proj_name, build_obj in sorted(self.builds.items()):
+            if build_obj.run_local is False:
+                continue
             content = build_obj.local_build_output_str
             logger.debug("Writing local output to S3 for %s", proj_name)
             url = self.write_to_s3(prefix, proj_name, content)

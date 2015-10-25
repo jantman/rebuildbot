@@ -821,13 +821,18 @@ class TestReBuildBot(object):
 
     def test_write_local_output(self):
         build1 = Mock(spec_set=BuildInfo)
+        type(build1).run_local = PropertyMock(return_value=True)
         type(build1).local_build_output_str = PropertyMock(return_value='a1out')
         build2 = Mock(spec_set=BuildInfo)
+        type(build2).run_local = PropertyMock(return_value=True)
         type(build2).local_build_output_str = PropertyMock(return_value='a2out')
+        build3 = Mock(spec_set=BuildInfo)
+        type(build3).run_local = PropertyMock(return_value=False)
 
         self.cls.builds = {
             'a/1': build1,
             'a/2': build2,
+            'a/3': build3,
         }
 
         def se_write(prefix, fname, content):
