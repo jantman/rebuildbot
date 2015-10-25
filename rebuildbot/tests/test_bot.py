@@ -41,6 +41,7 @@ import sys
 import pytest
 import pytz
 import re
+from datetime import datetime, timedelta
 from textwrap import dedent
 
 from boto.s3.connection import S3Connection
@@ -58,6 +59,7 @@ from rebuildbot.version import _VERSION
 from travispy.errors import TravisError
 
 from freezegun import freeze_time
+from freezegun.api import FakeDatetime
 
 # https://code.google.com/p/mock/issues/detail?id=249
 # py>=3.4 should use unittest.mock not the mock package on pypi
@@ -367,15 +369,22 @@ class TestReBuildBot(object):
              patch('%s.have_work_to_do' % pb, new_callable=PropertyMock) \
              as mock_have_work, \
              patch('%s.runner_loop' % pb) as mock_runner_loop, \
+             patch('%s.dt_now' % pb) as mock_dt_now, \
              patch('%s.handle_results' % pb) as mock_handle_results:
             mock_have_work.side_effect = [True, True, False]
+            mock_dt_now.side_effect = [
+                datetime(2015, 10, 20, 20, 00, 00),
+                datetime(2015, 10, 20, 20, 02, 23)
+            ]
             self.cls.run()
         assert mock_find.mock_calls == [call(None)]
         assert self.cls.builds == mock_find.return_value
         assert mock_start_travis.mock_calls == [call()]
         assert mock_have_work.mock_calls == [call(), call(), call()]
         assert mock_runner_loop.mock_calls == [call(), call()]
-        assert mock_handle_results.mock_calls == [call()]
+        assert mock_handle_results.mock_calls == [
+            call(timedelta(0, 143))
+        ]
 
     def test_run_with_projects(self):
         with \
@@ -384,15 +393,22 @@ class TestReBuildBot(object):
              patch('%s.have_work_to_do' % pb, new_callable=PropertyMock) \
              as mock_have_work, \
              patch('%s.runner_loop' % pb) as mock_runner_loop, \
+             patch('%s.dt_now' % pb) as mock_dt_now, \
              patch('%s.handle_results' % pb) as mock_handle_results:
             mock_have_work.return_value = False
+            mock_dt_now.side_effect = [
+                datetime(2015, 10, 20, 20, 00, 00),
+                datetime(2015, 10, 20, 20, 02, 23)
+            ]
             self.cls.run(['foo/bar', 'baz/blam'])
         assert mock_find.mock_calls == [call(['foo/bar', 'baz/blam'])]
         assert self.cls.builds == mock_find.return_value
         assert mock_start_travis.mock_calls == [call()]
         assert mock_have_work.mock_calls == [call()]
         assert mock_runner_loop.mock_calls == []
-        assert mock_handle_results.mock_calls == [call()]
+        assert mock_handle_results.mock_calls == [
+            call(timedelta(0, 143))
+        ]
 
     def test_start_travis_builds(self):
 
@@ -811,10 +827,12 @@ class TestReBuildBot(object):
             mocks['get_s3_prefix'].return_value = 's3/prefix'
             mocks['generate_report'].return_value = 'myreport'
             mocks['write_to_s3'].return_value = 'myurl'
-            self.cls.handle_results()
+            self.cls.handle_results(timedelta(0, 143))
         assert mocks['get_s3_prefix'].mock_calls == [call()]
         assert mocks['write_local_output'].mock_calls == [call('s3/prefix')]
-        assert mocks['generate_report'].mock_calls == [call('s3/prefix')]
+        assert mocks['generate_report'].mock_calls == [
+            call('s3/prefix', timedelta(0, 143))
+        ]
         assert mocks['write_to_s3'].mock_calls == [
             call('s3/prefix', 'index.html', 'myreport', ctype='text/html')
         ]
@@ -868,7 +886,7 @@ class TestReBuildBot(object):
             mock_template.render.return_value = 'rendered'
             mock_env.return_value.get_template.return_value = mock_template
             mock_localzone.return_value = pytz.timezone('US/Eastern')
-            res = self.cls.generate_report('my/prefix')
+            res = self.cls.generate_report('my/prefix', timedelta(0, 143))
 
         expected_run_info = {
             'version': _VERSION,
@@ -878,6 +896,7 @@ class TestReBuildBot(object):
             'prefix': 'my/prefix',
             'bucket': 'bktname',
             'dry_run': False,
+            'duration': '0:02:23'
         }
 
         assert mock_env.mock_calls == [
@@ -907,7 +926,7 @@ class TestReBuildBot(object):
             mock_node.return_value = 'my.node.name'
             mock_user.return_value = 'myuser'
             mock_localzone.return_value = pytz.timezone('US/Eastern')
-            res = self.cls.generate_report('my/prefix')
+            res = self.cls.generate_report('my/prefix', timedelta(0, 143))
 
         assert res.startswith('<html>') is True
         assert '<title>ReBuildBot Report - 2015-01-10 07:13:14-0500 EST on ' \
@@ -934,6 +953,7 @@ class TestReBuildBot(object):
             "</table>",
             flags=re.S
         )
+        assert '<h3>Complete run time: 0:02:23</h3>' in res
         assert table_re.search(res) is not None, "Content:\n%s\n" \
             "Not found in content:\n%s" % (table_re.pattern, res)
 
@@ -1000,3 +1020,7 @@ class TestReBuildBot(object):
             call.wait_for_new_build('my/slug', 1)
         ]
         assert res is None
+
+    @freeze_time('2015-01-10 12:13:14')
+    def test_dt_now(self):
+        assert self.cls.dt_now() == FakeDatetime(2015, 1, 10, 12, 13, 14)

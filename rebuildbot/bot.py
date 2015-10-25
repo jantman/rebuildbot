@@ -120,12 +120,15 @@ class ReBuildBot(object):
         if building a subset of all
         :type projects: list of strings
         """
+        start_dt = self.dt_now()
         self.builds = self.find_projects(projects)
         self.start_travis_builds()
         # @TODO probably need a timeout here
         while self.have_work_to_do:
             self.runner_loop()
-        self.handle_results()
+        end_dt = self.dt_now()
+        duration = end_dt - start_dt
+        self.handle_results(duration)
 
     def runner_loop(self):
         """
@@ -170,23 +173,28 @@ class ReBuildBot(object):
                 return True
         return False
 
-    def handle_results(self):
+    def handle_results(self, duration):
         """
         Once all builds are complete, collect the results, upload the relevant
         information to S3, and then build the final report and send it.
+
+        :param duration: the duration of the entire ReBuildBot run
+        :type duration: :py:class:`datetime.timedelta`
         """
         prefix = self.get_s3_prefix()
         self.write_local_output(prefix)
-        report = self.generate_report(prefix)
+        report = self.generate_report(prefix, duration)
         url = self.write_to_s3(prefix, 'index.html', report, ctype='text/html')
         logger.info("Full report written to: %s", url)
 
-    def generate_report(self, prefix):
+    def generate_report(self, prefix, duration):
         """
         Generate the overall HTML report for this run.
 
         :param prefix: the prefix to write S3 files under, or local files under
         :type prefix: str
+        :param duration: the duration of the entire ReBuildBot run
+        :type duration: :py:class:`datetime.timedelta`
         :returns: generated report HTML
         :rytpe: str
         """
@@ -207,6 +215,7 @@ class ReBuildBot(object):
             'bucket': self.bucket.name,
             'prefix': prefix,
             'dry_run': self.dry_run,
+            'duration': str(duration),
         }
         build_infos = self.get_build_info_html_list()
 
@@ -498,3 +507,9 @@ class ReBuildBot(object):
             return None
         bi.set_travis_build_ids(bi.travis_last_build_id, new)
         return new
+
+    def dt_now(self):
+        """
+        Helper that returns datetime.now() - to make testing easier.
+        """
+        return datetime.now()
