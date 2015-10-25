@@ -89,7 +89,7 @@ class TestLocalBuild(object):
                 patch('%s.run_build' % pb) as mock_run, \
                 patch('%s.rmtree' % pbm) as mock_rmtree, \
                 patch('%s.get_time' % pb) as mock_time:
-            mock_clone.return_value = '/my/clone/path'
+            mock_clone.return_value = ('/my/clone/path', 'repostr')
             mock_run.return_value = 'my output'
             mock_time.side_effect = [
                 datetime(2015, 1, 1, 1, 0, 0),
@@ -101,7 +101,8 @@ class TestLocalBuild(object):
         assert self.bi.mock_calls == [
             call.set_local_build(return_code=0, output='my output',
                                  start_dt=datetime(2015, 1, 1, 1, 0, 0),
-                                 end_dt=datetime(2015, 1, 1, 2, 0, 0))
+                                 end_dt=datetime(2015, 1, 1, 2, 0, 0),
+                                 repo_str='repostr')
         ]
         assert mock_rmtree.mock_calls == [call('/my/clone/path')]
 
@@ -154,7 +155,7 @@ class TestLocalBuild(object):
                 patch('%s.rmtree' % pbm) as mock_rmtree, \
                 patch('%s.sys.exc_info' % pbm) as mock_excinfo, \
                 patch('%s.get_time' % pb) as mock_time:
-            mock_clone.return_value = '/my/clone/path'
+            mock_clone.return_value = ('/my/clone/path', 'repostr')
             mock_run.side_effect = se_ex
             mock_time.side_effect = [
                 datetime(2015, 1, 1, 1, 0, 0),
@@ -168,7 +169,8 @@ class TestLocalBuild(object):
             call.set_local_build(excinfo=ex, output='my out', return_code=4,
                                  ex_type=ex_t, traceback=tb,
                                  start_dt=datetime(2015, 1, 1, 1, 0, 0),
-                                 end_dt=datetime(2015, 1, 1, 2, 0, 0))
+                                 end_dt=datetime(2015, 1, 1, 2, 0, 0),
+                                 repo_str='repostr')
         ]
         assert mock_rmtree.mock_calls == [call('/my/clone/path')]
 
@@ -183,7 +185,7 @@ class TestLocalBuild(object):
                 patch('%s.rmtree' % pbm) as mock_rmtree, \
                 patch('%s.sys.exc_info' % pbm) as mock_excinfo, \
                 patch('%s.get_time' % pb) as mock_time:
-            mock_clone.return_value = '/my/clone/path'
+            mock_clone.return_value = ('/my/clone/path', 'repostr')
             mock_run.side_effect = se_ex
             mock_time.side_effect = [
                 datetime(2015, 1, 1, 1, 0, 0),
@@ -196,7 +198,8 @@ class TestLocalBuild(object):
         assert self.bi.mock_calls == [
             call.set_local_build(excinfo=ex, ex_type=ex_t, traceback=tb,
                                  start_dt=datetime(2015, 1, 1, 1, 0, 0),
-                                 end_dt=datetime(2015, 1, 1, 2, 0, 0))
+                                 end_dt=datetime(2015, 1, 1, 2, 0, 0),
+                                 repo_str='repostr')
         ]
         assert mock_rmtree.mock_calls == [call('/my/clone/path')]
 
@@ -209,41 +212,48 @@ class TestLocalBuild(object):
         type(self.bi).ssh_clone_url = 'ssh_url'
         type(self.bi).https_clone_url = 'https_url'
 
-        def se_clone(url, path, branch=None):
-            return True
+        mock_repo = Mock(name='mock_repo')
+        mock_repo.head.ref.name = 'rname'
+        mock_repo.head.ref.commit.hexsha = 'mysha'
 
         with patch('%s.path_for_repo' % pb) as mock_path, \
-                patch('%s.Repo' % pbm) as mock_repo:
+                patch('%s.Repo.clone_from' % pbm) as mock_clone:
             mock_path.return_value = '/repo/path'
-            mock_repo.clone_from.side_effect = se_clone
+            mock_clone.return_value = mock_repo
             res = self.cls.clone_repo()
         assert mock_path.mock_calls == [call()]
-        assert mock_repo.mock_calls == [
-            call.clone_from('ssh_url', '/repo/path', branch='master')
-        ]
-        assert res == '/repo/path'
+        assert mock_clone.mock_calls[0] == call(
+            'ssh_url', '/repo/path', branch='master'
+        )
+        assert res == ('/repo/path', '<ssh_url> rname (mysha)')
 
     def test_clone_repo_ssh_fail(self):
         type(self.bi).ssh_clone_url = 'ssh_url'
         type(self.bi).https_clone_url = 'https_url'
         ex = Exception('foo')
 
+        mock_repo = Mock(name='mock_repo')
+        mock_repo.head.ref.name = 'rname'
+        mock_repo.head.ref.commit.hexsha = 'mysha'
+
         def se_clone(url, path, branch=None):
             if url == 'ssh_url':
                 raise ex
-            return True
+            return mock_repo
 
         with patch('%s.path_for_repo' % pb) as mock_path, \
-                patch('%s.Repo' % pbm) as mock_repo:
+                patch('%s.Repo.clone_from' % pbm) as mock_clone:
             mock_path.return_value = '/repo/path'
-            mock_repo.clone_from.side_effect = se_clone
+            mock_clone.side_effect = se_clone
             res = self.cls.clone_repo(branch='mybranch')
         assert mock_path.mock_calls == [call()]
-        assert mock_repo.mock_calls == [
-            call.clone_from('ssh_url', '/repo/path', branch='mybranch'),
-            call.clone_from('https_url', '/repo/path', branch='mybranch'),
-        ]
-        assert res == '/repo/path'
+        assert mock_clone.mock_calls[0] == call.clone_from(
+            'ssh_url', '/repo/path', branch='mybranch'
+        )
+        assert mock_clone.mock_calls[1] == call.clone_from(
+            'https_url', '/repo/path', branch='mybranch'
+        )
+        assert res == ('/repo/path', '<https_url> rname (mysha)')
 
     def test_clone_repo_all_fail(self):
         type(self.bi).ssh_clone_url = 'ssh_url'
@@ -294,7 +304,7 @@ class TestLocalBuild(object):
             call.info("DRY RUN - not actually cloning %s into %s", 'my/repo',
                       '/repo/path')
         ]
-        assert res == '/repo/path'
+        assert res == ('/repo/path', '(DRY RUN)')
 
     def test_path_for_repo(self):
         with patch('%s.mkdtemp' % pbm) as mock_mkdtemp:

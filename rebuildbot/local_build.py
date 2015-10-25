@@ -77,7 +77,7 @@ class LocalBuild(object):
         update the object.
         """
         try:
-            repo_path = self.clone_repo()
+            repo_path, repo_str = self.clone_repo()
         except Exception as ex:
             logger.exception("Exception while cloning %s", self.repo_name)
             ex_type, ex, tb = sys.exc_info()
@@ -100,7 +100,8 @@ class LocalBuild(object):
                 ex_type=ex_type,
                 traceback=tb,
                 start_dt=start,
-                end_dt=self.get_time()
+                end_dt=self.get_time(),
+                repo_str=repo_str
             )
             logger.debug("shutil.rmtree(%s)", repo_path)
             rmtree(repo_path)
@@ -111,12 +112,14 @@ class LocalBuild(object):
             ex_type, ex, tb = sys.exc_info()
             self.build_info.set_local_build(excinfo=ex, ex_type=ex_type,
                                             traceback=tb, start_dt=start,
-                                            end_dt=self.get_time())
+                                            end_dt=self.get_time(),
+                                            repo_str=repo_str)
             logger.debug("shutil.rmtree(%s)", repo_path)
             rmtree(repo_path)
             return
         self.build_info.set_local_build(return_code=return_code, output=output,
-                                        start_dt=start, end_dt=self.get_time())
+                                        start_dt=start, end_dt=self.get_time(),
+                                        repo_str=repo_str)
         logger.debug("shutil.rmtree(%s)", repo_path)
         rmtree(repo_path)
 
@@ -128,7 +131,8 @@ class LocalBuild(object):
 
     def clone_repo(self, branch='master'):
         """
-        Clone the repository.
+        Clone the repository. Return a 2-tuple of (path on disk, string
+        describing the state of the repo)
         """
         path = self.path_for_repo()
         logger.debug("Cloning %s branch %s into: %s", self.repo_name, branch,
@@ -136,7 +140,7 @@ class LocalBuild(object):
         if self.dry_run:
             logger.info("DRY RUN - not actually cloning %s into %s",
                         self.repo_name, path)
-            return path
+            return (path, '(DRY RUN)')
         excinfo = None
         for url in [
                 self.build_info.ssh_clone_url,
@@ -144,13 +148,16 @@ class LocalBuild(object):
         ]:
             try:
                 logger.debug("Cloning %s into %s", url, path)
-                Repo.clone_from(
+                repo = Repo.clone_from(
                     url,
                     path,
                     branch=branch
                 )
                 logger.debug("Cloned %s to %s", url, path)
-                return path
+                br_name = repo.head.ref.name
+                sha = repo.head.ref.commit.hexsha
+                repo_str = '<%s> %s (%s)' % (url, br_name, sha)
+                return (path, repo_str)
             except Exception as ex:
                 excinfo = ex
         raise excinfo

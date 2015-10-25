@@ -84,6 +84,7 @@ class BuildInfo(object):
         self.local_build_end = None
         self.local_build_duration = None
         self.local_build_s3_link = None
+        self.local_build_repo_str = None
 
         # set by self.set_travis_build_finished()
         # these mirror the fields of :py:class:`travispy.entities.build.Build`
@@ -153,7 +154,7 @@ class BuildInfo(object):
 
     def set_local_build(self, return_code=None, output=None, excinfo=None,
                         ex_type=None, traceback=None, start_dt=None,
-                        end_dt=None):
+                        end_dt=None, repo_str=None):
         """
         When a local build is finished, update with its return code and
         output string.
@@ -172,6 +173,8 @@ class BuildInfo(object):
         :type start_dt: datetime.datetime
         :param end_dt: DateTime of build end
         :type end_dt: datetime.datetime
+        :param repo_str: string describing the state of the cloned repo
+        :type repo_str: str
         """
         self.local_build_return_code = return_code
         self.local_build_output = output
@@ -181,6 +184,7 @@ class BuildInfo(object):
         self.local_build_finished = True
         self.local_build_start = start_dt
         self.local_build_end = end_dt
+        self.local_build_repo_str = repo_str
         if start_dt is not None and end_dt is not None:
             self.local_build_duration = end_dt - start_dt
 
@@ -229,10 +233,19 @@ class BuildInfo(object):
         start_str = ''
         end_str = ''
         time_str = ''
+        repo_str = ''
+        if self.local_build_repo_str is not None:
+            repo_str = self.local_build_repo_str
         if self.local_build_start is not None:
-            start_str = "=> Build of {s} starts at {d}\n".format(
+            start_str = "=> Build of {s} {r} starts at {d}\n".format(
                 s=self.slug,
-                d=self.local_build_start.strftime('%Y-%m-%d %H:%M:%S')
+                d=self.local_build_start.strftime('%Y-%m-%d %H:%M:%S'),
+                r=repo_str
+            )
+        else:
+            start_str = "=> Build of {s} {r}\n".format(
+                s=self.slug,
+                r=repo_str
             )
         if self.local_build_end is not None:
             end_str = "=> Build ends at {d}\n".format(
