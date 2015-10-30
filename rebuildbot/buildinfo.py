@@ -267,6 +267,8 @@ class BuildInfo(object):
 
         :rtype: str
         """
+        if self.travis_build_url is None or self.travis_build_duration is None:
+            return 'n/a'
         s = '<span class="icon {icon}">&nbsp;</span>'.format(
             icon=self.travis_build_icon
         )

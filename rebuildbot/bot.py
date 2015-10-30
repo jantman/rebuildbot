@@ -364,7 +364,7 @@ class ReBuildBot(object):
             try:
                 self.travis.get_last_build(project)
                 tmp_build.run_travis = True
-            except TravisError:
+            except (TravisError, KeyError):
                 pass
             builds[project] = tmp_build
         return builds

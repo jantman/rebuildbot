@@ -300,34 +300,41 @@ class TestReBuildBot(object):
         def se_last_build(proj_name):
             if proj_name in ['a/p1', 'a/p3']:
                 return True
-            raise TravisError({
-                'status_code': 404,
-                'error': 'some error',
-                'message': {'message': 'foo'}
-            })
+            if proj_name == 'a/p2':
+                raise TravisError({
+                    'status_code': 404,
+                    'error': 'some error',
+                    'message': {'message': 'foo'}
+                })
+            if proj_name == 'a/p4':
+                raise KeyError()
 
         def se_config(projname):
             if projname == 'a/p1':
                 return ('clone_a_p1', 'ssh_a_p1')
             if projname == 'a/p2':
                 return ('clone_a_p2', 'ssh_a_p2')
+            if projname == 'a/p4':
+                return ('clone_a_p4', 'ssh_a_p4')
             return (None, None)
 
         self.cls.github.get_project_config.side_effect = se_config
         self.cls.travis.get_last_build.side_effect = se_last_build
 
-        res = self.cls.find_projects(['a/p1', 'a/p2', 'a/p3'])
+        res = self.cls.find_projects(['a/p1', 'a/p2', 'a/p3', 'a/p4'])
         assert self.cls.github.mock_calls == [
             call.get_project_config('a/p1'),
             call.get_project_config('a/p2'),
             call.get_project_config('a/p3'),
+            call.get_project_config('a/p4'),
         ]
         assert self.cls.travis.mock_calls == [
             call.get_last_build('a/p1'),
             call.get_last_build('a/p2'),
             call.get_last_build('a/p3'),
+            call.get_last_build('a/p4'),
         ]
-        assert len(res) == 3
+        assert len(res) == 4
         assert res['a/p1'].slug == 'a/p1'
         assert res['a/p1'].run_travis is True
         assert res['a/p1'].run_local is True
@@ -343,6 +350,11 @@ class TestReBuildBot(object):
         assert res['a/p3'].run_local is False
         assert res['a/p3'].https_clone_url is None
         assert res['a/p3'].ssh_clone_url is None
+        assert res['a/p4'].slug == 'a/p4'
+        assert res['a/p4'].run_travis is False
+        assert res['a/p4'].run_local is True
+        assert res['a/p4'].https_clone_url == 'clone_a_p4'
+        assert res['a/p4'].ssh_clone_url == 'ssh_a_p4'
 
     def test_connect_s3(self):
         mock_conn = Mock(spec_set=S3Connection)

@@ -334,6 +334,13 @@ class TestBuildInfo(object):
         expected += '<a href="myurl">#123</a> ran in 0:17:37'
         assert res == expected
 
+    def test_make_travis_html_no_build(self):
+        with patch('%s.travis_build_icon' % pb,
+                   new_callable=PropertyMock) as mock_icon:
+            mock_icon.return_value = 'foo'
+            res = self.cls.make_travis_html()
+        assert res == 'n/a'
+
     def test_travis_build_icon_canceled(self):
         self.cls.travis_build_state = 'canceled'
         assert self.cls.travis_build_icon == 'errored'
