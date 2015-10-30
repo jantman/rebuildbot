@@ -224,7 +224,10 @@ class BuildInfo(object):
 
         :rtype: str
         """
-        if self.local_build_exception is not None:
+        if (
+                self.local_build_exception is not None and
+                self.local_build_output is None
+        ):
             return "Build raised exception:\n" + ''.join(
                 traceback.format_exception(
                     self.local_build_ex_type, self.local_build_exception,
@@ -301,7 +304,10 @@ class BuildInfo(object):
 
         :rtype: str
         """
-        if self.local_build_exception is not None:
+        if (
+                self.local_build_exception is not None and
+                self.local_build_output is None
+        ):
             return 'errored'
         if self.local_build_return_code == 0:
             return 'passed'
