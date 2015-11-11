@@ -49,6 +49,8 @@ from travispy.entities.repo import Repo
 from travispy.entities.user import User
 from travispy.entities.build import Build
 
+from freezegun import freeze_time
+
 # https://code.google.com/p/mock/issues/detail?id=249
 # py>=3.4 should use unittest.mock not the mock package on pypi
 if (
@@ -98,6 +100,12 @@ class TestTravis(object):
             self.cls.user = self.mock_user
 
     def test_get_repos(self):
+
+        def se_build(r):
+            if r.slug == 'mylogin/foo':
+                return False
+            return True
+
         r1 = Mock(spec_set=Repo)
         type(r1).slug = 'mylogin/foo'
         r2 = Mock(spec_set=Repo)
@@ -105,11 +113,46 @@ class TestTravis(object):
         r3 = Mock(spec_set=Repo)
         type(r3).slug = 'mylogin/bar'
         self.mock_travis.repos.return_value = [r1, r2, r3]
-        res = self.cls.get_repos()
+        with patch('%s.repo_build_in_last_day' % pb) as mock_build:
+            mock_build.side_effect = se_build
+            res = self.cls.get_repos()
+        assert res == ['mylogin/foo']
+        assert self.mock_travis.mock_calls == [
+            call.repos(member='mylogin')
+        ]
+        assert mock_build.mock_calls == [
+            call(r1),
+            call(r3)
+        ]
+
+    def test_get_repos_date_check_false(self):
+        r1 = Mock(spec_set=Repo)
+        type(r1).slug = 'mylogin/foo'
+        r2 = Mock(spec_set=Repo)
+        type(r2).slug = 'otherlogin/foo'
+        r3 = Mock(spec_set=Repo)
+        type(r3).slug = 'mylogin/bar'
+        self.mock_travis.repos.return_value = [r1, r2, r3]
+        with patch('%s.repo_build_in_last_day' % pb) as mock_build:
+            mock_build.return_value = True
+            res = self.cls.get_repos(date_check=False)
         assert res == ['mylogin/bar', 'mylogin/foo']
         assert self.mock_travis.mock_calls == [
             call.repos(member='mylogin')
         ]
+        assert mock_build.mock_calls == []
+
+    @freeze_time('2015-01-10 01:00:00')
+    def test_repo_build_in_last_day_true(self):
+        mock_repo = Mock(spec_set=Repo)
+        mock_repo.last_build.started_at = '2015-01-10T00:45:00Z'
+        assert self.cls.repo_build_in_last_day(mock_repo) is True
+
+    @freeze_time('2015-01-10 01:00:00')
+    def test_repo_build_in_last_day_false(self):
+        mock_repo = Mock(spec_set=Repo)
+        mock_repo.last_build.started_at = '2015-01-02T12:45:12Z'
+        assert self.cls.repo_build_in_last_day(mock_repo) is False
 
     def test_run_build(self):
         mock_repo = Mock(spec_set=Repo)

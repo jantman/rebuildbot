@@ -41,6 +41,9 @@ Jason Antman <jason@jasonantman.com> <http://www.jasonantman.com>
 
 import time
 import logging
+from dateutil import parser
+from datetime import timedelta, datetime
+import pytz
 from rebuildbot.exceptions import (PollTimeoutException, TravisTriggerError)
 
 try:
@@ -75,24 +78,45 @@ class Travis(object):
         logger.debug("Authenticated to TravisCI as %s <%s> (user ID %s)",
                      self.user.login, self.user.email, self.user.id)
 
-    def get_repos(self):
+    def get_repos(self, date_check=True):
         """
-        Return a list of all repo names for the current authenticated user.
+        Return a list of all repo names for the current authenticated user. If
+        ``date_check`` is True, only return repos with a last build more
+        than 24 hours ago.
 
         This only returns repos with a slug (<user_or_org>/<repo_name>) that
         begins with the user login; it ignores organization repos or repos
         that the user is a collaborator on.
 
+        :param date_check: whether or not to only return repos with a last
+        build more than 24 hours ago.
+        :type date_check: bool
         :returns: list of the user's repository slugs
         :rtype: list of strings
         """
         repos = []
         for r in self.travis.repos(member=self.user.login):
-            if r.slug.startswith(self.user.login + '/'):
-                repos.append(r.slug)
-            else:
+            if not r.slug.startswith(self.user.login + '/'):
                 logger.debug("Ignoring repo owned by another user: %s", r.slug)
+                continue
+            if date_check and self.repo_build_in_last_day(r):
+                logger.debug("Skipping repo with build in last day: %s", r.slug)
+                continue
+            repos.append(r.slug)
         return sorted(repos)
+
+    def repo_build_in_last_day(self, repo):
+        """
+        Return True if the repo has had a build in the last day, False otherwise
+
+        :param repo: Travis repository object
+        :rtype: bool
+        """
+        now = datetime.now(pytz.utc)
+        dt = parser.parse(repo.last_build.started_at)
+        if now - dt > timedelta(hours=24):
+            return False
+        return True
 
     def run_build(self, repo_slug, branch='master'):
         """

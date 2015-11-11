@@ -277,7 +277,9 @@ class TestReBuildBot(object):
         assert self.cls.github.mock_calls == [
             call.find_projects(date_check='foo')
         ]
-        assert self.cls.travis.mock_calls == [call.get_repos()]
+        assert self.cls.travis.mock_calls == [
+            call.get_repos(date_check='foo')
+        ]
         assert len(res) == 3
         assert res['a/p1'].slug == 'a/p1'
         assert res['a/p1'].run_travis is True

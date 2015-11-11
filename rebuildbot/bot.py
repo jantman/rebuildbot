@@ -346,7 +346,7 @@ class ReBuildBot(object):
                                          https_clone_url=https_clone_url,
                                          ssh_clone_url=ssh_clone_url)
             # Travis
-            for repo in self.travis.get_repos():
+            for repo in self.travis.get_repos(date_check=self.date_check):
                 if repo not in builds:
                     builds[repo] = BuildInfo(repo)
                 builds[repo].run_travis = True
