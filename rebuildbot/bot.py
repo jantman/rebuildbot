@@ -82,7 +82,7 @@ class ReBuildBot(object):
     """
 
     def __init__(self, bucket_name, s3_prefix='rebuildbot', dry_run=False,
-                 date_check=True):
+                 date_check=True, run_travis=True, run_local=True):
         """
         Initialize ReBuildBot and attempt to connect to all external services.
 
@@ -96,6 +96,10 @@ class ReBuildBot(object):
         :param date_check: whether or not to skip running local builds on repos
         with a commit to master in the last 24 hours; if True, skip those repos
         :type date_check: bool
+        :param run_travis: whether or not to run Travis builds
+        :type run_travis: bool
+        :param run_local: whether or not to run local builds
+        :type run_local: bool
         """
         self.s3_prefix = s3_prefix
         self.date_check = date_check
@@ -105,6 +109,8 @@ class ReBuildBot(object):
         self.bucket_endpoint = None
         self.bucket = self.connect_s3(bucket_name)
         self.dry_run = dry_run
+        self.run_travis = run_travis
+        self.run_local = run_local
         """mapping of repository slugs to BuildInfo objects"""
         self.builds = {}
 
@@ -339,34 +345,41 @@ class ReBuildBot(object):
         if projects is None:
             logger.info("Finding candidate projects from Travis and GitHub")
             # GitHub
-            for repo, tup in self.github.find_projects(
-                    date_check=self.date_check).items():
-                https_clone_url, ssh_clone_url = tup
-                builds[repo] = BuildInfo(repo, run_local=True,
-                                         https_clone_url=https_clone_url,
-                                         ssh_clone_url=ssh_clone_url)
+            if self.run_local:
+                for repo, tup in self.github.find_projects(
+                        date_check=self.date_check).items():
+                    https_clone_url, ssh_clone_url = tup
+                    builds[repo] = BuildInfo(repo, run_local=True,
+                                             https_clone_url=https_clone_url,
+                                             ssh_clone_url=ssh_clone_url)
             # Travis
-            for repo in self.travis.get_repos(date_check=self.date_check):
-                if repo not in builds:
-                    builds[repo] = BuildInfo(repo)
-                builds[repo].run_travis = True
+            if self.run_travis:
+                for repo in self.travis.get_repos(date_check=self.date_check):
+                    if repo not in builds:
+                        builds[repo] = BuildInfo(repo)
+                    builds[repo].run_travis = True
             return builds
         logger.info("Using explicit projects list: %s", projects)
         for project in projects:
-            tup = self.github.get_project_config(project)
-            https_clone_url, ssh_clone_url = tup
-            run_local = True
-            if https_clone_url is None and ssh_clone_url is None:
-                run_local = False
+            run_local = False
+            https_clone_url = None
+            ssh_clone_url = None
+            if self.run_local:
+                tup = self.github.get_project_config(project)
+                https_clone_url, ssh_clone_url = tup
+                if https_clone_url is not None or ssh_clone_url is not None:
+                    run_local = True
             tmp_build = BuildInfo(project, run_local=run_local,
                                   https_clone_url=https_clone_url,
                                   ssh_clone_url=ssh_clone_url)
-            try:
-                self.travis.get_last_build(project)
-                tmp_build.run_travis = True
-            except (TravisError, KeyError):
-                pass
-            builds[project] = tmp_build
+            if self.run_travis:
+                try:
+                    self.travis.get_last_build(project)
+                    tmp_build.run_travis = True
+                except (TravisError, KeyError):
+                    pass
+            if tmp_build.run_local or tmp_build.run_travis:
+                builds[project] = tmp_build
         return builds
 
     def connect_s3(self, bucket_name):

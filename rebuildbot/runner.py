@@ -117,6 +117,14 @@ class Runner(object):
                        help='bypass commit date check on repos, '
                        'running local builds regardless of date of '
                        'last commit to master.')
+        p.add_argument('--no-travis', dest='run_travis', default=True,
+                       action='store_false',
+                       help='skip running Travis builds (only run '
+                       'local)')
+        p.add_argument('--no-local', dest='run_local', default=True,
+                       action='store_false',
+                       help='skip running local builds (only run '
+                       'Travis)')
         p.add_argument('BUCKET_NAME', action='store', type=str,
                        help='Name of S3 bucket to upload reports to')
         args = p.parse_args(argv)
@@ -142,7 +150,8 @@ class Runner(object):
             raise SystemExit(0)
 
         bot = ReBuildBot(args.BUCKET_NAME, s3_prefix=args.s3_prefix,
-                         dry_run=args.dry_run, date_check=args.date_check)
+                         dry_run=args.dry_run, date_check=args.date_check,
+                         run_local=args.run_local, run_travis=args.run_travis)
         bot.run(projects=args.repos)
 
 

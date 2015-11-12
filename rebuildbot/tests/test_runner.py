@@ -109,6 +109,14 @@ class TestRunner(object):
                                 help='bypass commit date check on repos, '
                                 'running local builds regardless of date of '
                                 'last commit to master.'),
+            call().add_argument('--no-travis', dest='run_travis', default=True,
+                                action='store_false',
+                                help='skip running Travis builds (only run '
+                                'local)'),
+            call().add_argument('--no-local', dest='run_local', default=True,
+                                action='store_false',
+                                help='skip running local builds (only run '
+                                'Travis)'),
             call().add_argument('BUCKET_NAME', action='store', type=str,
                                 help='Name of S3 bucket to upload reports to'),
             call().parse_args([]),
@@ -154,6 +162,16 @@ class TestRunner(object):
         )
         assert res.repos == ['foo/bar', 'baz/blam']
 
+    def test_parse_args_no_travis(self):
+        res = self.cls.parse_args(['--no-travis', 'bktname'])
+        assert res.run_travis is False
+        assert res.run_local is True
+
+    def test_parse_args_no_local(self):
+        res = self.cls.parse_args(['--no-local', 'bktname'])
+        assert res.run_travis is True
+        assert res.run_local is False
+
     def test_console_entry_point(self):
         argv = ['/tmp/rebuildbot/runner.py', 'bktname']
         with patch.object(sys, 'argv', argv):
@@ -162,7 +180,7 @@ class TestRunner(object):
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
-                 date_check=True),
+                 date_check=True, run_travis=True, run_local=True),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
@@ -175,7 +193,7 @@ class TestRunner(object):
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
-                 date_check=False),
+                 date_check=False, run_travis=True, run_local=True),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
@@ -188,7 +206,7 @@ class TestRunner(object):
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='my/prefix', dry_run=False,
-                 date_check=True),
+                 date_check=True, run_travis=True, run_local=True),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
@@ -202,7 +220,7 @@ class TestRunner(object):
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
-                 date_check=True),
+                 date_check=True, run_travis=True, run_local=True),
             call().run(projects=['foo/bar', 'baz/blam'])
         ]
         assert mock_logger.mock_calls == []
@@ -215,7 +233,7 @@ class TestRunner(object):
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=True,
-                 date_check=True),
+                 date_check=True, run_travis=True, run_local=True),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
@@ -243,7 +261,7 @@ class TestRunner(object):
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
-                 date_check=True),
+                 date_check=True, run_travis=True, run_local=True),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == [
@@ -261,7 +279,7 @@ class TestRunner(object):
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
-                 date_check=True),
+                 date_check=True, run_travis=True, run_local=True),
             call().run(projects=None)
         ]
 
@@ -274,3 +292,29 @@ class TestRunner(object):
         assert mock_logger.mock_calls == [
             call.setLevel(logging.DEBUG)
         ]
+
+    def test_console_entry_point_no_travis(self):
+        argv = ['/tmp/rebuildbot/runner.py', '--no-travis', 'bktname']
+        with patch.object(sys, 'argv', argv):
+            with patch('%s.ReBuildBot' % pbm) as mock_bot, \
+                 patch('%s.logger' % pbm) as mock_logger:
+                self.cls.console_entry_point()
+        assert mock_bot.mock_calls == [
+            call('bktname', s3_prefix='rebuildbot', dry_run=False,
+                 date_check=True, run_travis=False, run_local=True),
+            call().run(projects=None)
+        ]
+        assert mock_logger.mock_calls == []
+
+    def test_console_entry_point_no_local(self):
+        argv = ['/tmp/rebuildbot/runner.py', '--no-local', 'bktname']
+        with patch.object(sys, 'argv', argv):
+            with patch('%s.ReBuildBot' % pbm) as mock_bot, \
+                 patch('%s.logger' % pbm) as mock_logger:
+                self.cls.console_entry_point()
+        assert mock_bot.mock_calls == [
+            call('bktname', s3_prefix='rebuildbot', dry_run=False,
+                 date_check=True, run_travis=True, run_local=False),
+            call().run(projects=None)
+        ]
+        assert mock_logger.mock_calls == []
