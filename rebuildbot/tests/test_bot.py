@@ -73,6 +73,11 @@ else:
         patch, call, Mock, mock_open, PropertyMock, DEFAULT
     )
 
+if sys.version_info[0] < 3:
+    from StringIO import StringIO
+else:  # nocoverage
+    from io import StringIO
+
 pbm = 'rebuildbot.bot'  # patch base path for this module
 pb = 'rebuildbot.bot.ReBuildBot'  # patch base for class
 
@@ -80,13 +85,13 @@ pb = 'rebuildbot.bot.ReBuildBot'  # patch base for class
 class TestReBuildBotInit(object):
 
     def test_init(self):
-        with \
-             patch('%s.get_github_token' % pb) as mock_get_gh_token, \
-             patch('%s.GitHubWrapper' % pbm) as mock_gh, \
-             patch('%s.Travis' % pbm) as mock_travis, \
-             patch('%s.connect_s3' % pb) as mock_connect_s3:
+        mock_stringio = Mock(spec_set=StringIO)
+        with patch('%s.get_github_token' % pb) as mock_get_gh_token, \
+                patch('%s.GitHubWrapper' % pbm) as mock_gh, \
+                patch('%s.Travis' % pbm) as mock_travis, \
+                patch('%s.connect_s3' % pb) as mock_connect_s3:
             mock_get_gh_token.return_value = 'myGHtoken'
-            cls = ReBuildBot('mybucket')
+            cls = ReBuildBot('mybucket', log_buffer=mock_stringio)
         assert mock_get_gh_token.mock_calls == [call()]
         assert mock_gh.mock_calls == [call('myGHtoken')]
         assert mock_travis.mock_calls == [call('myGHtoken')]
@@ -101,6 +106,7 @@ class TestReBuildBotInit(object):
         assert cls.date_check is True
         assert cls.run_travis is True
         assert cls.run_local is True
+        assert cls.log_buffer == mock_stringio
 
     def test_init_dry_run(self):
         with \
@@ -125,6 +131,7 @@ class TestReBuildBotInit(object):
         assert cls.date_check is False
         assert cls.run_travis is True
         assert cls.run_local is True
+        assert cls.log_buffer is None
 
     def test_init_run_travis_false(self):
         with \
@@ -177,6 +184,7 @@ class TestReBuildBot(object):
             self.cls.s3_prefix = 's3/prefix'
             self.cls.run_travis = True
             self.cls.run_local = True
+            self.cls.log_buffer = None
 
     def test_get_github_token_env(self):
         new_env = {
@@ -1026,19 +1034,22 @@ class TestReBuildBot(object):
                 write_local_output=DEFAULT,
                 generate_report=DEFAULT,
                 write_to_s3=DEFAULT,
+                get_log_buffer_url=DEFAULT,
         ) as mocks:
             mocks['get_s3_prefix'].return_value = 's3/prefix'
             mocks['generate_report'].return_value = 'myreport'
             mocks['write_to_s3'].return_value = 'myurl'
+            mocks['get_log_buffer_url'].return_value = 's3/log'
             self.cls.handle_results(timedelta(0, 143))
         assert mocks['get_s3_prefix'].mock_calls == [call()]
         assert mocks['write_local_output'].mock_calls == [call('s3/prefix')]
         assert mocks['generate_report'].mock_calls == [
-            call('s3/prefix', timedelta(0, 143))
+            call('s3/prefix', timedelta(0, 143), 's3/log')
         ]
         assert mocks['write_to_s3'].mock_calls == [
             call('s3/prefix', 'index.html', 'myreport', ctype='text/html')
         ]
+        assert mocks['get_log_buffer_url'].mock_calls == [call('s3/prefix')]
 
     def test_write_local_output(self):
         build1 = Mock(spec_set=BuildInfo)
@@ -1089,7 +1100,8 @@ class TestReBuildBot(object):
             mock_template.render.return_value = 'rendered'
             mock_env.return_value.get_template.return_value = mock_template
             mock_localzone.return_value = pytz.timezone('US/Eastern')
-            res = self.cls.generate_report('my/prefix', timedelta(0, 143))
+            res = self.cls.generate_report('my/prefix', timedelta(0, 143),
+                                           'logstr')
 
         expected_run_info = {
             'version': _VERSION,
@@ -1099,7 +1111,8 @@ class TestReBuildBot(object):
             'prefix': 'my/prefix',
             'bucket': 'bktname',
             'dry_run': False,
-            'duration': '0:02:23'
+            'duration': '0:02:23',
+            'log_url': 'logstr',
         }
 
         assert mock_env.mock_calls == [
@@ -1129,7 +1142,8 @@ class TestReBuildBot(object):
             mock_node.return_value = 'my.node.name'
             mock_user.return_value = 'myuser'
             mock_localzone.return_value = pytz.timezone('US/Eastern')
-            res = self.cls.generate_report('my/prefix', timedelta(0, 143))
+            res = self.cls.generate_report('my/prefix', timedelta(0, 143),
+                                           'myLogURL')
 
         assert res.startswith('<html>') is True
         assert '<title>ReBuildBot Report - 2015-01-10 07:13:14-0500 EST on ' \
@@ -1156,7 +1170,8 @@ class TestReBuildBot(object):
             "</table>",
             flags=re.S
         )
-        assert '<h3>Complete run time: 0:02:23</h3>' in res
+        assert '<h3>Complete run time: 0:02:23 ' \
+            '(<a href="myLogURL">Logging output</a>)</h3>' in res
         assert table_re.search(res) is not None, "Content:\n%s\n" \
             "Not found in content:\n%s" % (table_re.pattern, res)
 
@@ -1227,3 +1242,16 @@ class TestReBuildBot(object):
     @freeze_time('2015-01-10 12:13:14')
     def test_dt_now(self):
         assert self.cls.dt_now() == FakeDatetime(2015, 1, 10, 12, 13, 14)
+
+    def test_get_log_buffer_url(self):
+        mock_buf = Mock()
+        mock_buf.read.return_value = 'my log content'
+        self.cls.log_buffer = mock_buf
+        with patch('%s.write_to_s3' % pb) as mock_write:
+            mock_write.return_value = 'myURL'
+            res = self.cls.get_log_buffer_url('s3/prefix')
+        assert res == 'myURL'
+        assert mock_buf.mock_calls == [call.read()]
+        assert mock_write.mock_calls == [
+            call('s3/prefix', 'logging.txt', 'my log content')
+        ]

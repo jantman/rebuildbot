@@ -82,7 +82,8 @@ class ReBuildBot(object):
     """
 
     def __init__(self, bucket_name, s3_prefix='rebuildbot', dry_run=False,
-                 date_check=True, run_travis=True, run_local=True):
+                 date_check=True, run_travis=True, run_local=True,
+                 log_buffer=None):
         """
         Initialize ReBuildBot and attempt to connect to all external services.
 
@@ -100,6 +101,8 @@ class ReBuildBot(object):
         :type run_travis: bool
         :param run_local: whether or not to run local builds
         :type run_local: bool
+        :param log_buffer: object holding logging handler output
+        :type log_buffer: LogBuffer
         """
         self.s3_prefix = s3_prefix
         self.date_check = date_check
@@ -111,6 +114,7 @@ class ReBuildBot(object):
         self.dry_run = dry_run
         self.run_travis = run_travis
         self.run_local = run_local
+        self.log_buffer = log_buffer
         """mapping of repository slugs to BuildInfo objects"""
         self.builds = {}
 
@@ -189,11 +193,25 @@ class ReBuildBot(object):
         """
         prefix = self.get_s3_prefix()
         self.write_local_output(prefix)
-        report = self.generate_report(prefix, duration)
+        log_url = self.get_log_buffer_url(prefix)
+        report = self.generate_report(prefix, duration, log_url)
         url = self.write_to_s3(prefix, 'index.html', report, ctype='text/html')
         logger.info("Full report written to: %s", url)
 
-    def generate_report(self, prefix, duration):
+    def get_log_buffer_url(self, prefix):
+        """
+        Write the current logging buffer content to S3, return the URL to it.
+        :param prefix: the prefix to write S3 files under, or local files under
+        :type prefix: str
+        :returns: S3 URL to logging buffer
+        :rtype: str
+        """
+        logger.info("Reading logging buffer for upload")
+        log = self.log_buffer.read()
+        url = self.write_to_s3(prefix, 'logging.txt', log)
+        return url
+
+    def generate_report(self, prefix, duration, log_url):
         """
         Generate the overall HTML report for this run.
 
@@ -201,6 +219,8 @@ class ReBuildBot(object):
         :type prefix: str
         :param duration: the duration of the entire ReBuildBot run
         :type duration: :py:class:`datetime.timedelta`
+        :param log_url: the URL to the logging output in S3
+        :type log_url: str
         :returns: generated report HTML
         :rytpe: str
         """
@@ -222,6 +242,7 @@ class ReBuildBot(object):
             'prefix': prefix,
             'dry_run': self.dry_run,
             'duration': str(duration),
+            'log_url': log_url,
         }
         build_infos = self.get_build_info_html_list()
 

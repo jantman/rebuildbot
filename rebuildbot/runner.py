@@ -41,11 +41,18 @@ import sys
 import argparse
 import logging
 
+from .logbuffer import LogBuffer
 from .bot import ReBuildBot
 from .version import _VERSION, _PROJECT_URL
 
 logging.basicConfig(level=logging.WARNING)
 logger = logging.getLogger()
+
+# capture logging for inclusion in reports
+log_capture_string = LogBuffer()
+capture_handler = logging.StreamHandler(log_capture_string)
+capture_handler.setLevel(logging.WARNING)
+logger.addHandler(capture_handler)
 
 # suppress boto internal logging below WARNING level
 boto_log = logging.getLogger("boto")
@@ -134,13 +141,16 @@ class Runner(object):
         args = self.parse_args(sys.argv[1:])
         if args.verbose == 1:
             logger.setLevel(logging.INFO)
+            capture_handler.setLevel(logging.INFO)
         elif args.verbose > 1:
             # debug-level logging hacks
             FORMAT = "[%(levelname)s %(filename)s:%(lineno)s - " \
                      "%(name)s.%(funcName)s() ] %(message)s"
             debug_formatter = logging.Formatter(fmt=FORMAT)
             logger.handlers[0].setFormatter(debug_formatter)
+            logger.handlers[1].setFormatter(debug_formatter)
             logger.setLevel(logging.DEBUG)
+            capture_handler.setLevel(logging.DEBUG)
 
         if args.version:
             print('rebuildbot {v} (see <{s}> for source code)'.format(
@@ -151,7 +161,8 @@ class Runner(object):
 
         bot = ReBuildBot(args.BUCKET_NAME, s3_prefix=args.s3_prefix,
                          dry_run=args.dry_run, date_check=args.date_check,
-                         run_local=args.run_local, run_travis=args.run_travis)
+                         run_local=args.run_local, run_travis=args.run_travis,
+                         log_buffer=log_capture_string)
         bot.run(projects=args.repos)
 
 

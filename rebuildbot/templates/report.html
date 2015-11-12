@@ -26,7 +26,7 @@
   <body>
     <h1>ReBuildBot Report - {{ run_info['date_s'] }} on {{ run_info['host'] }}</h1>
     {% if run_info['dry_run'] %}<h2>DRY RUN - No Builds Actually Executed</h2>{% endif %}
-    <h3>Complete run time: {{ run_info['duration'] }}</h3>
+    <h3>Complete run time: {{ run_info['duration'] }} (<a href="{{ run_info['log_url'] }}">Logging output</a>)</h3>
     <table>
       <tr><th>Project</th><th>Travis</th><th>Local</th></tr>
       {% for val in builds %}

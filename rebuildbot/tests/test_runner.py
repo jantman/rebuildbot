@@ -176,11 +176,13 @@ class TestRunner(object):
         argv = ['/tmp/rebuildbot/runner.py', 'bktname']
         with patch.object(sys, 'argv', argv):
             with patch('%s.ReBuildBot' % pbm) as mock_bot, \
-                 patch('%s.logger' % pbm) as mock_logger:
+                 patch('%s.logger' % pbm) as mock_logger, \
+                 patch('%s.log_capture_string' % pbm) as mock_lcs:
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
-                 date_check=True, run_travis=True, run_local=True),
+                 date_check=True, run_travis=True, run_local=True,
+                 log_buffer=mock_lcs),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
@@ -189,11 +191,13 @@ class TestRunner(object):
         argv = ['/tmp/rebuildbot/runner.py', '--no-date-check', 'bktname']
         with patch.object(sys, 'argv', argv):
             with patch('%s.ReBuildBot' % pbm) as mock_bot, \
-                 patch('%s.logger' % pbm) as mock_logger:
+                 patch('%s.logger' % pbm) as mock_logger, \
+                 patch('%s.log_capture_string' % pbm) as mock_lcs:
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
-                 date_check=False, run_travis=True, run_local=True),
+                 date_check=False, run_travis=True, run_local=True,
+                 log_buffer=mock_lcs),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
@@ -202,11 +206,13 @@ class TestRunner(object):
         argv = ['/tmp/rebuildbot/runner.py', '-p', 'my/prefix', 'bktname']
         with patch.object(sys, 'argv', argv):
             with patch('%s.ReBuildBot' % pbm) as mock_bot, \
-                 patch('%s.logger' % pbm) as mock_logger:
+                 patch('%s.logger' % pbm) as mock_logger, \
+                 patch('%s.log_capture_string' % pbm) as mock_lcs:
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='my/prefix', dry_run=False,
-                 date_check=True, run_travis=True, run_local=True),
+                 date_check=True, run_travis=True, run_local=True,
+                 log_buffer=mock_lcs),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
@@ -216,11 +222,13 @@ class TestRunner(object):
                 'bktname']
         with patch.object(sys, 'argv', argv):
             with patch('%s.ReBuildBot' % pbm) as mock_bot, \
-                 patch('%s.logger' % pbm) as mock_logger:
+                 patch('%s.logger' % pbm) as mock_logger, \
+                 patch('%s.log_capture_string' % pbm) as mock_lcs:
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
-                 date_check=True, run_travis=True, run_local=True),
+                 date_check=True, run_travis=True, run_local=True,
+                 log_buffer=mock_lcs),
             call().run(projects=['foo/bar', 'baz/blam'])
         ]
         assert mock_logger.mock_calls == []
@@ -229,11 +237,13 @@ class TestRunner(object):
         argv = ['/tmp/rebuildbot/runner.py', '--dry-run', 'bktname']
         with patch.object(sys, 'argv', argv):
             with patch('%s.ReBuildBot' % pbm) as mock_bot, \
-                 patch('%s.logger' % pbm) as mock_logger:
+                 patch('%s.logger' % pbm) as mock_logger, \
+                 patch('%s.log_capture_string' % pbm) as mock_lcs:
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=True,
-                 date_check=True, run_travis=True, run_local=True),
+                 date_check=True, run_travis=True, run_local=True,
+                 log_buffer=mock_lcs),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
@@ -242,7 +252,8 @@ class TestRunner(object):
         argv = ['/tmp/rebuildbot/runner.py', '-V', 'bktname']
         with patch.object(sys, 'argv', argv):
             with patch('%s.ReBuildBot' % pbm) as mock_bot, \
-                 patch('%s.logger' % pbm) as mock_logger:
+                 patch('%s.logger' % pbm) as mock_logger, \
+                 patch('%s.log_capture_string' % pbm):
                 with pytest.raises(SystemExit) as excinfo:
                     self.cls.console_entry_point()
         assert excinfo.value.code == 0
@@ -257,14 +268,20 @@ class TestRunner(object):
         argv = ['/tmp/rebuildbot/runner.py', '-v', 'bktname']
         with patch.object(sys, 'argv', argv):
             with patch('%s.ReBuildBot' % pbm) as mock_bot, \
-                 patch('%s.logger' % pbm) as mock_logger:
+                 patch('%s.logger' % pbm) as mock_logger, \
+                 patch('%s.capture_handler' % pbm) as mock_cap_handler, \
+                 patch('%s.log_capture_string' % pbm) as mock_lcs:
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
-                 date_check=True, run_travis=True, run_local=True),
+                 date_check=True, run_travis=True, run_local=True,
+                 log_buffer=mock_lcs),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == [
+            call.setLevel(logging.INFO)
+        ]
+        assert mock_cap_handler.mock_calls == [
             call.setLevel(logging.INFO)
         ]
 
@@ -273,13 +290,17 @@ class TestRunner(object):
         with patch.object(sys, 'argv', argv):
             with patch('%s.ReBuildBot' % pbm) as mock_bot, \
                  patch('%s.logger' % pbm) as mock_logger, \
-                 patch('%s.logging.Formatter' % pbm) as mock_formatter:
+                 patch('%s.logging.Formatter' % pbm) as mock_formatter, \
+                 patch('%s.capture_handler' % pbm) as mock_cap_handler, \
+                 patch('%s.log_capture_string' % pbm) as mock_lcs:
                 mock_handler = Mock()
-                type(mock_logger).handlers = [mock_handler]
+                mock_handler2 = Mock()
+                type(mock_logger).handlers = [mock_handler, mock_handler2]
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
-                 date_check=True, run_travis=True, run_local=True),
+                 date_check=True, run_travis=True, run_local=True,
+                 log_buffer=mock_lcs),
             call().run(projects=None)
         ]
 
@@ -289,7 +310,13 @@ class TestRunner(object):
         assert mock_handler.mock_calls == [
             call.setFormatter(mock_formatter.return_value)
         ]
+        assert mock_handler2.mock_calls == [
+            call.setFormatter(mock_formatter.return_value)
+        ]
         assert mock_logger.mock_calls == [
+            call.setLevel(logging.DEBUG)
+        ]
+        assert mock_cap_handler.mock_calls == [
             call.setLevel(logging.DEBUG)
         ]
 
@@ -297,11 +324,13 @@ class TestRunner(object):
         argv = ['/tmp/rebuildbot/runner.py', '--no-travis', 'bktname']
         with patch.object(sys, 'argv', argv):
             with patch('%s.ReBuildBot' % pbm) as mock_bot, \
-                 patch('%s.logger' % pbm) as mock_logger:
+                 patch('%s.logger' % pbm) as mock_logger, \
+                 patch('%s.log_capture_string' % pbm) as mock_lcs:
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
-                 date_check=True, run_travis=False, run_local=True),
+                 date_check=True, run_travis=False, run_local=True,
+                 log_buffer=mock_lcs),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
@@ -310,11 +339,13 @@ class TestRunner(object):
         argv = ['/tmp/rebuildbot/runner.py', '--no-local', 'bktname']
         with patch.object(sys, 'argv', argv):
             with patch('%s.ReBuildBot' % pbm) as mock_bot, \
-                 patch('%s.logger' % pbm) as mock_logger:
+                 patch('%s.logger' % pbm) as mock_logger, \
+                 patch('%s.log_capture_string' % pbm) as mock_lcs:
                 self.cls.console_entry_point()
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
-                 date_check=True, run_travis=True, run_local=False),
+                 date_check=True, run_travis=True, run_local=False,
+                 log_buffer=mock_lcs),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
