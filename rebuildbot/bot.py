@@ -352,12 +352,16 @@ class ReBuildBot(object):
                     builds[repo] = BuildInfo(repo, run_local=True,
                                              https_clone_url=https_clone_url,
                                              ssh_clone_url=ssh_clone_url)
+            else:
+                logger.warning("Skipping local builds")
             # Travis
             if self.run_travis:
                 for repo in self.travis.get_repos(date_check=self.date_check):
                     if repo not in builds:
                         builds[repo] = BuildInfo(repo)
                     builds[repo].run_travis = True
+            else:
+                logger.warning("Skipping Travis builds")
             return builds
         logger.info("Using explicit projects list: %s", projects)
         for project in projects:
@@ -369,6 +373,8 @@ class ReBuildBot(object):
                 https_clone_url, ssh_clone_url = tup
                 if https_clone_url is not None or ssh_clone_url is not None:
                     run_local = True
+            else:
+                logger.warning("Skipping local builds")
             tmp_build = BuildInfo(project, run_local=run_local,
                                   https_clone_url=https_clone_url,
                                   ssh_clone_url=ssh_clone_url)
@@ -378,6 +384,8 @@ class ReBuildBot(object):
                     tmp_build.run_travis = True
                 except (TravisError, KeyError):
                     pass
+            else:
+                logger.warning("Skipping Travis builds")
             if tmp_build.run_local or tmp_build.run_travis:
                 builds[project] = tmp_build
         return builds
