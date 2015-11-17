@@ -176,16 +176,20 @@ class LocalBuild(object):
         if self.dry_run:
             return "DRY RUN"
         oldpwd = os.getcwd()
+        logger.debug("os.chdir(%s)", repo_path)
         os.chdir(repo_path)
         try:
+            logger.info("Running: ./.rebuildbot.sh")
             res = subprocess.check_output(
                 ['./.rebuildbot.sh'],
                 stderr=subprocess.STDOUT
             )
             if sys.version_info >= (3, 0):
                 res = res.decode(locale.getdefaultlocale()[1])
+            logger.debug("os.chdir(%s)", oldpwd)
             os.chdir(oldpwd)
         except Exception as ex:
+            logger.debug("os.chdir(%s)", oldpwd)
             os.chdir(oldpwd)
             # any CalledProcessError is handled in self.run()
             raise ex
