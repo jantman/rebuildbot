@@ -42,6 +42,7 @@ import os
 import shutil
 import logging
 import time
+import re
 from datetime import datetime
 from platform import node as platform_node
 from getpass import getuser
@@ -197,6 +198,7 @@ class ReBuildBot(object):
         report = self.generate_report(prefix, duration, log_url)
         url = self.write_to_s3(prefix, 'index.html', report, ctype='text/html')
         logger.info("Full report written to: %s", url)
+        self.write_index_html(url)
 
     def get_log_buffer_url(self, prefix):
         """
@@ -555,3 +557,74 @@ class ReBuildBot(object):
         Helper that returns datetime.now() - to make testing easier.
         """
         return datetime.now()
+
+    def write_index_html(self, latest_url):
+        """
+        Write a listing of all reports to the S3 bucket.
+
+        :param latest_url: URL to the report that was uploaded in this run
+        :type latest_url: string
+        """
+        # create content
+        content = self.make_index_html_content(latest_url)
+        # write to S3
+        logger.info("Uploading index.html")
+        url = self.write_to_s3(self.s3_prefix, 'index.html', content,
+                               ctype='text/html')
+        logger.info("Index uploaded to: %s", url)
+
+    def make_index_html_content(self, latest_url):
+        """
+        Generate the content for index.html
+
+        :param latest_url: URL to the report that was uploaded in this run
+        :type latest_url: string
+        :returns: HTML content
+        :rtype: string
+        """
+        env = Environment(
+            loader=PackageLoader('rebuildbot', 'templates'),
+            extensions=['jinja2.ext.loopcontrols']
+        )
+        template = env.get_template('index.html')
+
+        date_s = datetime.now(pytz.utc).astimezone(tzlocal.get_localzone())
+        date_s = date_s.strftime('%Y-%m-%d %H:%M:%S%z %Z')
+
+        existing_reports = self.get_current_reports()
+
+        run_info = {
+            'version': _VERSION,
+            'date_s': date_s,
+            'host': platform_node(),
+            'user': getuser(),
+            'bucket': self.bucket.name,
+            'prefix': self.s3_prefix,
+            'dry_run': self.dry_run,
+        }
+
+        html = template.render(run_info=run_info, latest_url=latest_url,
+                               reports=existing_reports)
+        return html
+
+    def get_current_reports(self):
+        """
+        return a list of URLs to current reports in the bucket, ordered reverse
+        by path (date).
+
+        :returns: list of existing report URLs, ordered descending by URL
+        :rtype: list
+        """
+        keys = set()
+        # RE for individual report index.html keys
+        key_re = re.compile(r'^%s/.+/index\.html' % self.s3_prefix)
+        # remove the bucket prefix...
+        remove_re = re.compile(r'^%s/' % self.s3_prefix)
+        # list the contents
+        l = self.bucket.list(prefix=self.s3_prefix)
+        # find the index.html keys and add them to the set
+        for k in l:
+            if key_re.match(k.name):
+                name = remove_re.sub('', k.name)
+                keys.add(name)
+        return sorted(keys, reverse=True)
