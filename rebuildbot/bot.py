@@ -161,6 +161,7 @@ class ReBuildBot(object):
         ran_local = False
         for name, bi in sorted(self.builds.items()):
             if bi.run_local and bi.local_build_finished is False:
+                logger.info('Creating local build of %s', name)
                 b = LocalBuild(name, bi, dry_run=self.dry_run)
                 b.run()
                 ran_local = True
@@ -385,6 +386,7 @@ class ReBuildBot(object):
                     builds[repo].run_travis = True
             else:
                 logger.warning("Skipping Travis builds")
+            logger.debug("Candidate projects identified.")
             return builds
         logger.info("Using explicit projects list: %s", projects)
         for project in projects:

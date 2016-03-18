@@ -76,6 +76,7 @@ class LocalBuild(object):
         `self.dry_run` is True, log everything that would be done and then
         update the object.
         """
+        logger.info('Starting local build of %s', self.repo_name)
         try:
             repo_path, repo_str = self.clone_repo()
         except Exception as ex:
@@ -179,7 +180,8 @@ class LocalBuild(object):
         logger.debug("os.chdir(%s)", repo_path)
         os.chdir(repo_path)
         try:
-            logger.info("Running: ./.rebuildbot.sh")
+            script_path = os.path.join(repo_path, '.rebuildbot.sh')
+            logger.info("Running: %s" % script_path)
             res = subprocess.check_output(
                 ['./.rebuildbot.sh'],
                 stderr=subprocess.STDOUT

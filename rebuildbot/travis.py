@@ -103,6 +103,7 @@ class Travis(object):
                 logger.debug("Skipping repo with build in last day: %s", r.slug)
                 continue
             repos.append(r.slug)
+        logger.debug('Found %d repos: %s', len(repos), repos)
         return sorted(repos)
 
     def repo_build_in_last_day(self, repo):
