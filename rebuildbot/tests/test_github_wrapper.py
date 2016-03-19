@@ -121,6 +121,7 @@ class TestGitHubWrapper(object):
                        "last day", 'myuser/bar'),
             call.debug("Skipping repository '%s' - .rebuildbot.sh not "
                        "present", 'myuser/baz'),
+            call.debug("Found %d repos: %s", 1, ['myuser/foo'])
         ]
 
     def test_find_projects_no_date_check(self):
@@ -160,6 +161,7 @@ class TestGitHubWrapper(object):
         assert mock_logger.mock_calls == [
             call.debug("Skipping repository '%s' - .rebuildbot.sh not "
                        "present", 'myuser/baz'),
+            call.debug("Found %d repos: %s", 2, ['myuser/foo', 'myuser/bar'])
         ]
 
     def test_get_project_config(self):
