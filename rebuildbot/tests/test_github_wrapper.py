@@ -161,7 +161,7 @@ class TestGitHubWrapper(object):
         assert mock_logger.mock_calls == [
             call.debug("Skipping repository '%s' - .rebuildbot.sh not "
                        "present", 'myuser/baz'),
-            call.debug("Found %d repos: %s", 2, ['myuser/foo', 'myuser/bar'])
+            call.debug("Found %d repos: %s", 2, ['myuser/bar', 'myuser/foo'])
         ]
 
     def test_get_project_config(self):

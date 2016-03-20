@@ -86,7 +86,8 @@ class GitHubWrapper(object):
                              "present", repo.full_name)
                 continue
             projects[repo.full_name] = (repo.clone_url, repo.ssh_url)
-        logger.debug("Found %d repos: %s", len(projects), list(projects.keys()))
+        logger.debug("Found %d repos: %s", len(projects),
+                     sorted(list(projects.keys())))
         return projects
 
     def get_project_config(self, repo_full_name, branch='master'):
