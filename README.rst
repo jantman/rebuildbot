@@ -1,6 +1,10 @@
 rebuildbot
 ----------
 
+.. image:: http://www.repostatus.org/badges/latest/wip.svg
+   :alt: Project Status: WIP – Initial development is in progress, but there has not yet been a stable, usable release suitable for the public.
+   :target: http://www.repostatus.org/#wip
+
 ReBuildBot re-runs builds of your inactive projects.
 
 Dependencies change. Libraries break. Your dependencies might have unpinned dependencies of their own, which can cause breakage or conflicts during installation. For personal projects with slow development cycles, it might be weeks or months before a broken build or bug report uncovers the problems. ReBuildBot is a Python script that runs via cron to trigger rebuilds of your projects on TravisCI, and/or execute build commands locally in a fresh git clone of master (i.e. integration or acceptance tests). You'll receive an email with the details of the runs and links to local command output uploaded to S3.
