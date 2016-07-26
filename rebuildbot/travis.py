@@ -99,7 +99,13 @@ class Travis(object):
             if not r.slug.startswith(self.user.login + '/'):
                 logger.debug("Ignoring repo owned by another user: %s", r.slug)
                 continue
-            if date_check and self.repo_build_in_last_day(r):
+            build_in_last_day = False
+            try:
+                build_in_last_day = self.repo_build_in_last_day(r)
+            except KeyError:
+                logger.debug('Skipping repo with no builds: %s', r.slug)
+                continue
+            if date_check and build_in_last_day:
                 logger.debug("Skipping repo with build in last day: %s", r.slug)
                 continue
             repos.append(r.slug)
