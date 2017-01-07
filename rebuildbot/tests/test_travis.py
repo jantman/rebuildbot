@@ -140,7 +140,7 @@ class TestTravis(object):
         assert self.mock_travis.mock_calls == [
             call.repos(member='mylogin')
         ]
-        assert mock_build.mock_calls == []
+        assert mock_build.mock_calls == [call(r1), call(r3)]
 
     @freeze_time('2015-01-10 01:00:00')
     def test_repo_build_in_last_day_true(self):
@@ -300,7 +300,7 @@ class TestTravis(object):
         self.mock_travis._HEADERS = {'foo': 'bar'}
         self.cls.trigger_travis('a/b')
 
-        expected_url = 'http://api.travis-ci.org/repo/a%2Fb/requests'
+        expected_url = 'https://api.travis-ci.org/repo/a%2Fb/requests'
         expected_json = {
             'request': {
                 'branch': 'master',
@@ -330,7 +330,7 @@ class TestTravis(object):
         self.mock_travis._HEADERS = {'foo': 'bar'}
         self.cls.trigger_travis('a/b', branch='mybranch')
 
-        expected_url = 'http://api.travis-ci.org/repo/a%2Fb/requests'
+        expected_url = 'https://api.travis-ci.org/repo/a%2Fb/requests'
         expected_json = {
             'request': {
                 'branch': 'mybranch',
@@ -357,7 +357,7 @@ class TestTravis(object):
         mock_session.post.return_value = mock_response
         type(self.mock_travis)._session = mock_session
 
-        expected_url = 'http://api.travis-ci.org/repo/a%2Fb/requests'
+        expected_url = 'https://api.travis-ci.org/repo/a%2Fb/requests'
 
         self.mock_travis._HEADERS = {'foo': 'bar'}
         with pytest.raises(TravisTriggerError) as excinfo:
