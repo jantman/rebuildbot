@@ -142,6 +142,23 @@ class TestTravis(object):
         ]
         assert mock_build.mock_calls == [call(r1), call(r3)]
 
+    def test_get_repos_key_error(self):
+
+        def se(*args, **kwargs):
+            raise KeyError()
+
+        r1 = Mock(spec_set=Repo)
+        type(r1).slug = 'mylogin/foo'
+        self.mock_travis.repos.return_value = [r1]
+        with patch('%s.repo_build_in_last_day' % pb) as mock_build:
+            mock_build.side_effect = se
+            res = self.cls.get_repos()
+        assert res == []
+        assert self.mock_travis.mock_calls == [
+            call.repos(member='mylogin')
+        ]
+        assert mock_build.mock_calls == [call(r1)]
+
     @freeze_time('2015-01-10 01:00:00')
     def test_repo_build_in_last_day_true(self):
         mock_repo = Mock(spec_set=Repo)
