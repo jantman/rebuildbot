@@ -13,8 +13,10 @@ Requirements
 ============
 
 * Python 2.7, or Python >= 3.3. Sorry if this is too limited, but:
+
   * Python 2.6 is archaic at this point, and just too difficult to maintain compatibility with in one codebase
   * The `boto <https://github.com/boto/boto>`_ library we use to interface with S3 lacks support for Python3 < 3.3, and it doesn't appear that will change.
+
 * Some code on GitHub, being tested by Travis.
 * An AWS account, and an existing S3 bucket to put build reports in. In order for the links in the report to work, the S3 bucket must be configured for `static website hosting <http://docs.aws.amazon.com/AmazonS3/latest/dev/HowDoIWebsiteConfiguration.html>`_ with a `bucket policy to allow global anonymous read access <http://docs.aws.amazon.com/AmazonS3/latest/dev/WebsiteAccessPermissionsReqd.html>`_.
 
