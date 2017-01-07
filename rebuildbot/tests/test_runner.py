@@ -117,6 +117,10 @@ class TestRunner(object):
                                 action='store_false',
                                 help='skip running local builds (only run '
                                 'Travis)'),
+            call().add_argument('-i', '--ignore', dest='ignore_repos',
+                                default=[], action='append',
+                                help='repository slugs (USER/REPO) to '
+                                     'completely ignore'),
             call().add_argument('BUCKET_NAME', action='store', type=str,
                                 help='Name of S3 bucket to upload reports to'),
             call().parse_args([]),
@@ -142,6 +146,14 @@ class TestRunner(object):
     def test_parse_args_dry_run(self):
         res = self.cls.parse_args(['-d', 'bktname'])
         assert res.dry_run is True
+
+    def test_parse_args_no_ignore(self):
+        res = self.cls.parse_args(['bktname'])
+        assert res.ignore_repos == []
+
+    def test_parse_args_ignore(self):
+        res = self.cls.parse_args(['-i', 'foo', '--ignore=bar', 'bktname'])
+        assert res.ignore_repos == ['foo', 'bar']
 
     def test_parse_args_no_repos(self):
         res = self.cls.parse_args(['-d', 'bktname'])
@@ -182,7 +194,7 @@ class TestRunner(object):
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
                  date_check=True, run_travis=True, run_local=True,
-                 log_buffer=mock_lcs),
+                 log_buffer=mock_lcs, ignore_repos=[]),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
@@ -197,7 +209,7 @@ class TestRunner(object):
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
                  date_check=False, run_travis=True, run_local=True,
-                 log_buffer=mock_lcs),
+                 log_buffer=mock_lcs, ignore_repos=[]),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
@@ -212,7 +224,7 @@ class TestRunner(object):
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='my/prefix', dry_run=False,
                  date_check=True, run_travis=True, run_local=True,
-                 log_buffer=mock_lcs),
+                 log_buffer=mock_lcs, ignore_repos=[]),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
@@ -228,7 +240,7 @@ class TestRunner(object):
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
                  date_check=True, run_travis=True, run_local=True,
-                 log_buffer=mock_lcs),
+                 log_buffer=mock_lcs, ignore_repos=[]),
             call().run(projects=['foo/bar', 'baz/blam'])
         ]
         assert mock_logger.mock_calls == []
@@ -243,7 +255,7 @@ class TestRunner(object):
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=True,
                  date_check=True, run_travis=True, run_local=True,
-                 log_buffer=mock_lcs),
+                 log_buffer=mock_lcs, ignore_repos=[]),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
@@ -275,7 +287,7 @@ class TestRunner(object):
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
                  date_check=True, run_travis=True, run_local=True,
-                 log_buffer=mock_lcs),
+                 log_buffer=mock_lcs, ignore_repos=[]),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == [
@@ -300,7 +312,7 @@ class TestRunner(object):
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
                  date_check=True, run_travis=True, run_local=True,
-                 log_buffer=mock_lcs),
+                 log_buffer=mock_lcs, ignore_repos=[]),
             call().run(projects=None)
         ]
 
@@ -330,7 +342,7 @@ class TestRunner(object):
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
                  date_check=True, run_travis=False, run_local=True,
-                 log_buffer=mock_lcs),
+                 log_buffer=mock_lcs, ignore_repos=[]),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []
@@ -345,7 +357,28 @@ class TestRunner(object):
         assert mock_bot.mock_calls == [
             call('bktname', s3_prefix='rebuildbot', dry_run=False,
                  date_check=True, run_travis=True, run_local=False,
-                 log_buffer=mock_lcs),
+                 log_buffer=mock_lcs, ignore_repos=[]),
+            call().run(projects=None)
+        ]
+        assert mock_logger.mock_calls == []
+
+    def test_console_entry_point_ignore_repos(self):
+        argv = [
+            '/tmp/rebuildbot/runner.py',
+            '-i', 'foo/bar',
+            '--ignore=foo/baz',
+            'bktname'
+        ]
+        with patch.object(sys, 'argv', argv):
+            with patch('%s.ReBuildBot' % pbm) as mock_bot, \
+                 patch('%s.logger' % pbm) as mock_logger, \
+                 patch('%s.log_capture_string' % pbm) as mock_lcs:
+                self.cls.console_entry_point()
+        assert mock_bot.mock_calls == [
+            call('bktname', s3_prefix='rebuildbot', dry_run=False,
+                 date_check=True, run_travis=True, run_local=True,
+                 log_buffer=mock_lcs,
+                 ignore_repos=['foo/bar', 'foo/baz']),
             call().run(projects=None)
         ]
         assert mock_logger.mock_calls == []

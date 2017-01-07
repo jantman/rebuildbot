@@ -132,6 +132,9 @@ class Runner(object):
                        action='store_false',
                        help='skip running local builds (only run '
                        'Travis)')
+        p.add_argument('-i', '--ignore', dest='ignore_repos', default=[],
+                       action='append',
+                       help='repository slugs (USER/REPO) to completely ignore')
         p.add_argument('BUCKET_NAME', action='store', type=str,
                        help='Name of S3 bucket to upload reports to')
         args = p.parse_args(argv)
@@ -162,7 +165,8 @@ class Runner(object):
         bot = ReBuildBot(args.BUCKET_NAME, s3_prefix=args.s3_prefix,
                          dry_run=args.dry_run, date_check=args.date_check,
                          run_local=args.run_local, run_travis=args.run_travis,
-                         log_buffer=log_capture_string)
+                         log_buffer=log_capture_string,
+                         ignore_repos=args.ignore_repos)
         bot.run(projects=args.repos)
 
 

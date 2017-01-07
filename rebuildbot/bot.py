@@ -84,7 +84,7 @@ class ReBuildBot(object):
 
     def __init__(self, bucket_name, s3_prefix='rebuildbot', dry_run=False,
                  date_check=True, run_travis=True, run_local=True,
-                 log_buffer=None):
+                 log_buffer=None, ignore_repos=[]):
         """
         Initialize ReBuildBot and attempt to connect to all external services.
 
@@ -104,6 +104,8 @@ class ReBuildBot(object):
         :type run_local: bool
         :param log_buffer: object holding logging handler output
         :type log_buffer: LogBuffer
+        :param ignore_repos: list of repo slugs (USER/NAME) to completely ignore
+        :type ignore_repos: list
         """
         self.s3_prefix = s3_prefix
         self.date_check = date_check
@@ -116,6 +118,7 @@ class ReBuildBot(object):
         self.run_travis = run_travis
         self.run_local = run_local
         self.log_buffer = log_buffer
+        self.ignore_repos = [x.lower() for x in ignore_repos]
         """mapping of repository slugs to BuildInfo objects"""
         self.builds = {}
 
@@ -372,6 +375,9 @@ class ReBuildBot(object):
             if self.run_local:
                 for repo, tup in self.github.find_projects(
                         date_check=self.date_check).items():
+                    if repo.lower() in self.ignore_repos:
+                        logger.info('Ignoring GitHub repo: %s', repo)
+                        continue
                     https_clone_url, ssh_clone_url = tup
                     builds[repo] = BuildInfo(repo, run_local=True,
                                              https_clone_url=https_clone_url,
@@ -381,6 +387,9 @@ class ReBuildBot(object):
             # Travis
             if self.run_travis:
                 for repo in self.travis.get_repos(date_check=self.date_check):
+                    if repo.lower() in self.ignore_repos:
+                        logger.info('Ignoring TravisCI repo: %s', repo)
+                        continue
                     if repo not in builds:
                         builds[repo] = BuildInfo(repo)
                     builds[repo].run_travis = True

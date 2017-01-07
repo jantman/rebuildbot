@@ -107,6 +107,7 @@ class TestReBuildBotInit(object):
         assert cls.run_travis is True
         assert cls.run_local is True
         assert cls.log_buffer == mock_stringio
+        assert cls.ignore_repos == []
 
     def test_init_dry_run(self):
         with \
@@ -161,6 +162,20 @@ class TestReBuildBotInit(object):
         assert mock_connect_s3.mock_calls == [call('mybucket')]
         assert cls.run_local is False
 
+    def test_init_ignore_repos(self):
+        with \
+             patch('%s.get_github_token' % pb) as mock_get_gh_token, \
+             patch('%s.GitHubWrapper' % pbm) as mock_gh, \
+             patch('%s.Travis' % pbm) as mock_travis, \
+             patch('%s.connect_s3' % pb) as mock_connect_s3:
+            mock_get_gh_token.return_value = 'myGHtoken'
+            cls = ReBuildBot('mybucket', ignore_repos=['foo/Bar', 'foo/baZ'])
+        assert mock_get_gh_token.mock_calls == [call()]
+        assert mock_gh.mock_calls == [call('myGHtoken')]
+        assert mock_travis.mock_calls == [call('myGHtoken')]
+        assert mock_connect_s3.mock_calls == [call('mybucket')]
+        assert cls.ignore_repos == ['foo/bar', 'foo/baz']
+
 
 class TestReBuildBot(object):
 
@@ -185,6 +200,7 @@ class TestReBuildBot(object):
             self.cls.run_travis = True
             self.cls.run_local = True
             self.cls.log_buffer = None
+            self.cls.ignore_repos = []
 
     def test_get_github_token_env(self):
         new_env = {
@@ -314,6 +330,43 @@ class TestReBuildBot(object):
         self.cls.travis.get_repos.return_value = [
             'a/p1',
             'a/p3',
+        ]
+        res = self.cls.find_projects(None)
+        assert self.cls.github.mock_calls == [
+            call.find_projects(date_check='foo')
+        ]
+        assert self.cls.travis.mock_calls == [
+            call.get_repos(date_check='foo')
+        ]
+        assert len(res) == 3
+        assert res['a/p1'].slug == 'a/p1'
+        assert res['a/p1'].run_travis is True
+        assert res['a/p1'].run_local is True
+        assert res['a/p1'].https_clone_url == 'clone_a_p1'
+        assert res['a/p1'].ssh_clone_url == 'ssh_a_p1'
+        assert res['a/p2'].slug == 'a/p2'
+        assert res['a/p2'].run_travis is False
+        assert res['a/p2'].run_local is True
+        assert res['a/p2'].https_clone_url == 'clone_a_p2'
+        assert res['a/p2'].ssh_clone_url == 'ssh_a_p2'
+        assert res['a/p3'].slug == 'a/p3'
+        assert res['a/p3'].run_travis is True
+        assert res['a/p3'].run_local is False
+        assert res['a/p3'].https_clone_url is None
+        assert res['a/p3'].ssh_clone_url is None
+
+    def test_find_projects_automatic_ignore_repos(self):
+        self.cls.date_check = 'foo'
+        self.cls.ignore_repos = 'a/p4'
+        self.cls.github.find_projects.return_value = {
+            'a/p1': ('clone_a_p1', 'ssh_a_p1'),
+            'a/p2': ('clone_a_p2', 'ssh_a_p2'),
+            'a/p4': ('clone_a_p3', 'ssh_a_p3')
+        }
+        self.cls.travis.get_repos.return_value = [
+            'a/p1',
+            'a/p3',
+            'a/p4'
         ]
         res = self.cls.find_projects(None)
         assert self.cls.github.mock_calls == [
