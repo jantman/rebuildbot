@@ -227,6 +227,7 @@ class TestGitHubWrapper(object):
         mock_repo = Mock(spec_set=Repository)
         type(mock_repo).full_name = 'myuser/foo'
         type(mock_repo).owner = Mock(login='myuser')
+        type(mock_repo).default_branch = 'master'
 
         mock_author = Mock(spec_set=GitAuthor)
         type(mock_author).date = datetime.datetime(2015, 1, 1, 2, 3, 4)
@@ -248,6 +249,7 @@ class TestGitHubWrapper(object):
         mock_repo = Mock(spec_set=Repository)
         type(mock_repo).full_name = 'myuser/foo'
         type(mock_repo).owner = Mock(login='myuser')
+        type(mock_repo).default_branch = 'master'
 
         mock_author = Mock(spec_set=GitAuthor)
         type(mock_author).date = datetime.datetime(2015, 1, 10, 10, 1, 2)
@@ -265,6 +267,50 @@ class TestGitHubWrapper(object):
         assert mock_repo.mock_calls == [call.get_branch('master')]
 
     @freeze_time('2015-01-10 12:13:14')
+    def test_repo_commit_in_last_day_true_non_master(self):
+        mock_repo = Mock(spec_set=Repository)
+        type(mock_repo).full_name = 'myuser/foo'
+        type(mock_repo).owner = Mock(login='myuser')
+        type(mock_repo).default_branch = 'foobar'
+
+        mock_author = Mock(spec_set=GitAuthor)
+        type(mock_author).date = datetime.datetime(2015, 1, 10, 10, 1, 2)
+        mock_commit_commit = Mock(spec_set=GitCommit)
+        type(mock_commit_commit).author = mock_author
+        mock_commit = Mock(spec_set=Commit)
+        type(mock_commit).sha = 'myCommitSHA'
+        type(mock_commit).commit = mock_commit_commit
+        mock_branch = Mock(spec_set=Branch)
+        type(mock_branch).commit = mock_commit
+        mock_repo.get_branch.return_value = mock_branch
+
+        res = self.cls.repo_commit_in_last_day(mock_repo)
+        assert res is True
+        assert mock_repo.mock_calls == [call.get_branch('foobar')]
+
+    @freeze_time('2015-01-10 12:13:14')
+    def test_repo_commit_in_last_day_true_specific_branch(self):
+        mock_repo = Mock(spec_set=Repository)
+        type(mock_repo).full_name = 'myuser/foo'
+        type(mock_repo).owner = Mock(login='myuser')
+        type(mock_repo).default_branch = 'foobar'
+
+        mock_author = Mock(spec_set=GitAuthor)
+        type(mock_author).date = datetime.datetime(2015, 1, 10, 10, 1, 2)
+        mock_commit_commit = Mock(spec_set=GitCommit)
+        type(mock_commit_commit).author = mock_author
+        mock_commit = Mock(spec_set=Commit)
+        type(mock_commit).sha = 'myCommitSHA'
+        type(mock_commit).commit = mock_commit_commit
+        mock_branch = Mock(spec_set=Branch)
+        type(mock_branch).commit = mock_commit
+        mock_repo.get_branch.return_value = mock_branch
+
+        res = self.cls.repo_commit_in_last_day(mock_repo, branch_name='baz')
+        assert res is True
+        assert mock_repo.mock_calls == [call.get_branch('baz')]
+
+    @freeze_time('2015-01-10 12:13:14')
     def test_repo_commit_in_last_day_exception(self):
 
         def se_exc(foo):
@@ -273,6 +319,7 @@ class TestGitHubWrapper(object):
         mock_repo = Mock(spec_set=Repository)
         type(mock_repo).full_name = 'myuser/foo'
         type(mock_repo).owner = Mock(login='myuser')
+        type(mock_repo).default_branch = 'master'
         mock_repo.get_branch.side_effect = se_exc
 
         with patch('%s.logger' % pbm) as mock_logger:

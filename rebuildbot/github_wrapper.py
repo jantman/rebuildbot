@@ -131,18 +131,20 @@ class GitHubWrapper(object):
             repos.append(repo)
         return repos
 
-    def repo_commit_in_last_day(self, repo_obj, branch_name='master'):
+    def repo_commit_in_last_day(self, repo_obj, branch_name=None):
         """
         Return true if the specified branch of the repo has a HEAD commit within
         the last day, False otherwise.
 
         :param repo_obj: the repository to inspect
         :type repo_obj: :py:class:`github.github.Repository`
-        :param branch_name: the branch name to check
+        :param branch_name: the branch name to check, if not the default branch
         :type branch_name: string
         :returns: True if the last commit is within the last day, else False
         :rtype: boolean
         """
+        if branch_name is None:
+            branch_name = repo_obj.default_branch
         try:
             branch = repo_obj.get_branch(branch_name)
         except GithubException:
