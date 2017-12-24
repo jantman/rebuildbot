@@ -1,13 +1,18 @@
 rebuildbot
 ----------
 
-.. image:: http://www.repostatus.org/badges/latest/active.svg
-   :alt: Project Status: Active - The project has reached a stable, usable state and is being actively developed.
-   :target: http://www.repostatus.org/#active
+.. image:: http://www.repostatus.org/badges/latest/unsupported.svg
+   :alt: Project Status: Unsupported – The project has reached a stable, usable state but the author(s) have ceased all work on it. A new maintainer may be desired.
+   :target: http://www.repostatus.org/#unsupported
 
 ReBuildBot re-runs builds of your inactive projects.
 
 Dependencies change. Libraries break. Your dependencies might have unpinned dependencies of their own, which can cause breakage or conflicts during installation. For personal projects with slow development cycles, it might be weeks or months before a broken build or bug report uncovers the problems. ReBuildBot is a Python script that runs via cron to trigger rebuilds of your projects on TravisCI, and/or execute build commands locally in a fresh git clone of master (i.e. integration or acceptance tests). You'll receive an email with the details of the runs and links to local command output uploaded to S3.
+
+Deprecated and Unsupported
+--------------------------
+
+Now that TravisCI has introduced both `cron jobs <https://docs.travis-ci.com/user/cron-jobs/>`_ and Docker support, things like this shouldn't be needed anymore. I don't use this project anymore, and don't plan on maintaining it. If you have interest in it, please contact me.
 
 Requirements
 ============
